@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1106" height="576" viewBox="-28 -28 1106 576" font-family="Trebuchet MS, Verdana, sans-serif">
+<rect x="-28" y="-28" width="1106.0" height="576.0" fill="#08090c"/>
+<rect x="7" y="11" width="1050.0" height="520.0" rx="10" fill="#000" opacity="0.5"/>
+<rect x="52.0" y="70.0" width="160.0" height="478.0" rx="0.0" fill="#17171a" opacity="1.000"/>
+<circle cx="81.0" cy="91.0" r="21.0" fill="#b82d43" opacity="1.000"/>
+<circle cx="66.7" cy="74.2" r="2.9" fill="#b82d43" opacity="1.000"/>
+<circle cx="60.8" cy="84.3" r="2.1" fill="#b82d43" opacity="1.000"/>
+<rect x="77.1" y="80.1" width="7.9" height="10.0" rx="3.9" fill="#ffffff" opacity="1.000"/>
+<circle cx="81.0" cy="90.1" r="7.4" fill="#ffffff" opacity="1.000"/>
+<defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e5334c" stop-opacity="0.498"/><stop offset="0.5" stop-color="#ff7f99" stop-opacity="0.000"/><stop offset="1" stop-color="#e5334c" stop-opacity="0.498"/></linearGradient></defs>
+<rect x="52.0" y="140.0" width="140.0" height="30.0" rx="0.0" fill="url(#g1)"/>
+<rect x="186.0" y="147.5" width="3.0" height="15.0" rx="0.0" fill="#b82d43" opacity="1.000"/>
+<defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e54c4c" stop-opacity="0.098"/><stop offset="0.5" stop-color="#666666" stop-opacity="0.000"/><stop offset="1" stop-color="#e54c4c" stop-opacity="0.098"/></linearGradient></defs>
+<rect x="212.0" y="70.0" width="851.0" height="20.0" rx="0.0" fill="url(#g2)"/>
+<rect x="539.3" y="104.5" width="130.4" height="24.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<rect x="675.7" y="104.5" width="243.2" height="24.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<line x1="212.0" y1="150.0" x2="1063.0" y2="150.0" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<line x1="342.0" y1="130.0" x2="342.0" y2="150.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="472.0" y1="130.0" x2="472.0" y2="150.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="592.0" y1="130.0" x2="592.0" y2="150.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="702.0" y1="130.0" x2="702.0" y2="150.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="877.0" y1="130.0" x2="877.0" y2="150.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="923.0" y1="130.0" x2="923.0" y2="150.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="1053.5" y1="45.5" x2="1062.5" y2="52.5" stroke="#5b6b77" stroke-opacity="1.000" stroke-width="1.6"/>
+<line x1="1062.5" y1="45.5" x2="1053.5" y2="52.5" stroke="#5b6b77" stroke-opacity="1.000" stroke-width="1.6"/>
+<text x="110.0" y="93.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">SFN Logs</text>
+<text x="87.4" y="160.8" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Журнал</text>
+<text x="93.2" y="208.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Поиск</text>
+<text x="70.2" y="256.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Настройки</text>
+<text x="71.1" y="304.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">О скрипте</text>
+<text x="60.0" y="521.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v2.0.13</text>
+<text x="60.0" y="539.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">API: ок</text>
+<text x="218.0" y="86.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">&lt;</text>
+<text x="234.0" y="85.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Журнал состава</text>
+<text x="548.8" y="122.0" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">R Обновить</text>
+<text x="685.2" y="122.0" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">M Состав из /members</text>
+<text x="236.7" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Никнейм</text>
+<text x="350.4" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Кто принял</text>
+<text x="509.0" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Ранг</text>
+<text x="606.7" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Повышен</text>
+<text x="707.3" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">След. повышение</text>
+<text x="885.9" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Ур.</text>
+<text x="958.4" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Статус</text>
+<text x="218.0" y="177.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">в журнале пока нет записей</text>
+<text x="218.0" y="197.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">API журнала отвечает только по нику (player=...): состав собирается</text>
+<text x="218.0" y="217.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">через «Состав из /members», перехват чата или Поиск -&gt; В состав</text>
+</svg>

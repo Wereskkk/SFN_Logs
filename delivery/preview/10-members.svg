@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1528" height="576" viewBox="-28 -28 1528 576" font-family="Trebuchet MS, Verdana, sans-serif">
+<rect x="-28" y="-28" width="1528.4800000000002" height="576.0" fill="#08090c"/>
+<rect x="7" y="11" width="1472.4800000000002" height="520.0" rx="10" fill="#000" opacity="0.5"/>
+<rect x="52.0" y="70.0" width="160.0" height="478.0" rx="0.0" fill="#17171a" opacity="1.000"/>
+<circle cx="81.0" cy="91.0" r="21.0" fill="#b82d43" opacity="1.000"/>
+<circle cx="66.7" cy="74.2" r="2.9" fill="#b82d43" opacity="1.000"/>
+<circle cx="60.8" cy="84.3" r="2.1" fill="#b82d43" opacity="1.000"/>
+<rect x="77.1" y="80.1" width="7.9" height="10.0" rx="3.9" fill="#ffffff" opacity="1.000"/>
+<circle cx="81.0" cy="90.1" r="7.4" fill="#ffffff" opacity="1.000"/>
+<defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e5334c" stop-opacity="0.498"/><stop offset="0.5" stop-color="#ff7f99" stop-opacity="0.000"/><stop offset="1" stop-color="#e5334c" stop-opacity="0.498"/></linearGradient></defs>
+<rect x="52.0" y="140.0" width="140.0" height="30.0" rx="0.0" fill="url(#g1)"/>
+<rect x="186.0" y="147.5" width="3.0" height="15.0" rx="0.0" fill="#b82d43" opacity="1.000"/>
+<defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e54c4c" stop-opacity="0.098"/><stop offset="0.5" stop-color="#666666" stop-opacity="0.000"/><stop offset="1" stop-color="#e54c4c" stop-opacity="0.098"/></linearGradient></defs>
+<rect x="212.0" y="70.0" width="1273.5" height="20.0" rx="0.0" fill="url(#g2)"/>
+<rect x="961.8" y="104.5" width="130.4" height="24.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<rect x="1098.1" y="104.5" width="243.2" height="24.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<line x1="212.0" y1="150.0" x2="1485.5" y2="150.0" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<line x1="389.8" y1="130.0" x2="389.8" y2="414.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="519.8" y1="130.0" x2="519.8" y2="414.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="800.7" y1="130.0" x2="800.7" y2="414.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="910.7" y1="130.0" x2="910.7" y2="414.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="1089.2" y1="130.0" x2="1089.2" y2="414.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="1135.2" y1="130.0" x2="1135.2" y2="414.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<rect x="212.0" y="186.0" width="1273.5" height="24.0" rx="0.0" fill="#28282b" opacity="1.000"/>
+<line x1="1476.0" y1="45.5" x2="1485.0" y2="52.5" stroke="#5b6b77" stroke-opacity="1.000" stroke-width="1.6"/>
+<line x1="1485.0" y1="45.5" x2="1476.0" y2="52.5" stroke="#5b6b77" stroke-opacity="1.000" stroke-width="1.6"/>
+<text x="110.0" y="93.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">SFN Logs</text>
+<text x="87.4" y="160.8" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Журнал</text>
+<text x="93.2" y="208.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Поиск</text>
+<text x="70.2" y="256.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Настройки</text>
+<text x="71.1" y="304.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">О скрипте</text>
+<text x="60.0" y="521.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v2.0.12</text>
+<text x="60.0" y="539.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">API: ок</text>
+<text x="218.0" y="86.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">&lt;</text>
+<text x="234.0" y="85.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Журнал состава</text>
+<text x="971.3" y="122.0" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">R Обновить</text>
+<text x="1107.6" y="122.0" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">M Состав из /members</text>
+<text x="260.6" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Никнейм</text>
+<text x="398.2" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Кто принял</text>
+<text x="637.2" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Ранг</text>
+<text x="815.4" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Повышен</text>
+<text x="917.7" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">След. повышение</text>
+<text x="1098.1" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Ур.</text>
+<text x="1275.8" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Статус</text>
+<text x="249.8" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Jonny_Wilde</text>
+<text x="448.6" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">—</text>
+<text x="526.8" y="173.5" fill="#a88cff" opacity="1.000" font-size="13.5" xml:space="preserve">Программный директор [9]</text>
+<text x="812.2" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">06.09.2026</text>
+<text x="956.4" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">--.--.----</text>
+<text x="1107.4" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">0</text>
+<text x="1256.9" y="173.5" fill="#a88cff" opacity="1.000" font-size="13.5" xml:space="preserve">макс. ранг</text>
+<text x="252.9" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Aru_Traxer</text>
+<text x="448.6" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">—</text>
+<text x="549.9" y="203.5" fill="#a88cff" opacity="1.000" font-size="13.5" xml:space="preserve">Главный редактор [7]</text>
+<text x="812.2" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">22.09.2026</text>
+<text x="956.4" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">29.09.2026</text>
+<text x="1107.4" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">0</text>
+<text x="1139.6" y="203.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">дата приблизительная (/member...</text>
+<text x="4000.0" y="4013.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Aru_Traxer</text>
+<text x="4000.0" y="4029.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">ранг по API: нет данных</text>
+<text x="4000.0" y="4045.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">кеш API: пусто</text>
+<text x="4000.0" y="4061.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">вход (/members): 22.09.2026 21:47</text>
+<text x="4000.0" y="4077.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">клик — меню сотрудника</text>
+<text x="247.8" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Garik_Grifon</text>
+<text x="448.6" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">—</text>
+<text x="595.0" y="233.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Редактор [6]</text>
+<text x="812.2" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">09.05.2026</text>
+<text x="956.4" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">16.05.2026</text>
+<text x="1107.4" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">0</text>
+<text x="1139.6" y="233.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">дата приблизительная (/member...</text>
+<text x="237.9" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Vallo_Caballero</text>
+<text x="448.6" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">—</text>
+<text x="595.0" y="263.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Редактор [6]</text>
+<text x="812.2" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">18.06.2026</text>
+<text x="956.4" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">25.06.2026</text>
+<text x="1107.4" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">0</text>
+<text x="1139.6" y="263.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">дата приблизительная (/member...</text>
+<text x="267.3" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Bad_Dog</text>
+<text x="448.6" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">—</text>
+<text x="595.0" y="293.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Редактор [6]</text>
+<text x="812.2" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">27.08.2026</text>
+<text x="956.4" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">03.09.2026</text>
+<text x="1107.4" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">0</text>
+<text x="1139.6" y="293.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">дата приблизительная (/member...</text>
+<text x="252.4" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Akio_Omano</text>
+<text x="448.6" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">—</text>
+<text x="595.0" y="323.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Редактор [6]</text>
+<text x="812.2" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">03.09.2026</text>
+<text x="956.4" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">10.09.2026</text>
+<text x="1107.4" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">0</text>
+<text x="1139.6" y="323.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">дата приблизительная (/member...</text>
+<text x="231.2" y="353.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Linnea_Korhonen</text>
+<text x="448.6" y="353.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">—</text>
+<text x="595.0" y="353.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Редактор [6]</text>
+<text x="812.2" y="353.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">14.09.2026</text>
+<text x="956.4" y="353.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">21.09.2026</text>
+<text x="1107.4" y="353.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">0</text>
+<text x="1139.6" y="353.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">дата приблизительная (/member...</text>
+<text x="256.8" y="383.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Alex_Wilde</text>
+<text x="448.6" y="383.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">—</text>
+<text x="600.8" y="383.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Ведущий [5]</text>
+<text x="812.2" y="383.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">14.04.2026</text>
+<text x="956.4" y="383.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">19.04.2026</text>
+<text x="1107.4" y="383.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">0</text>
+<text x="1139.6" y="383.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">дата приблизительная (/member...</text>
+<text x="219.0" y="413.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Gabriela_Bradberry</text>
+<text x="448.6" y="413.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">—</text>
+<text x="600.8" y="413.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Ведущий [5]</text>
+<text x="812.2" y="413.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">03.09.2026</text>
+<text x="956.4" y="413.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">08.09.2026</text>
+<text x="1107.4" y="413.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">0</text>
+<text x="1139.6" y="413.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">дата приблизительная (/member...</text>
+<text x="238.0" y="443.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Sonya_Malboro</text>
+<text x="448.6" y="443.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">—</text>
+<text x="595.0" y="443.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Репортёр [4]</text>
+<text x="812.2" y="443.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">23.09.2026</text>
+<text x="956.4" y="443.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">26.09.2026</text>
+<text x="1107.4" y="443.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">0</text>
+<text x="1139.6" y="443.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">дата приблизительная (/member...</text>
+<text x="242.8" y="473.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Anna_Malboro</text>
+<text x="448.6" y="473.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">—</text>
+<text x="595.0" y="473.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Репортёр [4]</text>
+<text x="812.2" y="473.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">23.09.2026</text>
+<text x="956.4" y="473.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">26.09.2026</text>
+<text x="1107.4" y="473.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">0</text>
+<text x="1139.6" y="473.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">дата приблизительная (/member...</text>
+</svg>

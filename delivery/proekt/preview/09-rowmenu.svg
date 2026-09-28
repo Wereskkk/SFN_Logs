@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1321" height="576" viewBox="-28 -28 1321 576" font-family="Trebuchet MS, Verdana, sans-serif">
+<rect x="-28" y="-28" width="1320.96" height="576.0" fill="#08090c"/>
+<rect x="7" y="11" width="1264.96" height="520.0" rx="10" fill="#000" opacity="0.5"/>
+<rect x="52.0" y="70.0" width="160.0" height="478.0" rx="0.0" fill="#17171a" opacity="1.000"/>
+<circle cx="81.0" cy="91.0" r="21.0" fill="#b82d43" opacity="1.000"/>
+<circle cx="66.7" cy="74.2" r="2.9" fill="#b82d43" opacity="1.000"/>
+<circle cx="60.8" cy="84.3" r="2.1" fill="#b82d43" opacity="1.000"/>
+<rect x="77.1" y="80.1" width="7.9" height="10.0" rx="3.9" fill="#ffffff" opacity="1.000"/>
+<circle cx="81.0" cy="90.1" r="7.4" fill="#ffffff" opacity="1.000"/>
+<defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e5334c" stop-opacity="0.498"/><stop offset="0.5" stop-color="#ff7f99" stop-opacity="0.000"/><stop offset="1" stop-color="#e5334c" stop-opacity="0.498"/></linearGradient></defs>
+<rect x="52.0" y="140.0" width="140.0" height="30.0" rx="0.0" fill="url(#g1)"/>
+<rect x="186.0" y="147.5" width="3.0" height="15.0" rx="0.0" fill="#b82d43" opacity="1.000"/>
+<defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e54c4c" stop-opacity="0.098"/><stop offset="0.5" stop-color="#666666" stop-opacity="0.000"/><stop offset="1" stop-color="#e54c4c" stop-opacity="0.098"/></linearGradient></defs>
+<rect x="212.0" y="70.0" width="1066.0" height="20.0" rx="0.0" fill="url(#g2)"/>
+<rect x="754.3" y="104.5" width="130.4" height="24.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<rect x="890.6" y="104.5" width="243.2" height="24.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<line x1="212.0" y1="150.0" x2="1278.0" y2="150.0" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<line x1="342.0" y1="130.0" x2="342.0" y2="294.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="472.0" y1="130.0" x2="472.0" y2="294.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="697.8" y1="130.0" x2="697.8" y2="294.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="807.8" y1="130.0" x2="807.8" y2="294.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="986.3" y1="130.0" x2="986.3" y2="294.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="1032.3" y1="130.0" x2="1032.3" y2="294.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="1268.5" y1="45.5" x2="1277.5" y2="52.5" stroke="#5b6b77" stroke-opacity="1.000" stroke-width="1.6"/>
+<line x1="1277.5" y1="45.5" x2="1268.5" y2="52.5" stroke="#5b6b77" stroke-opacity="1.000" stroke-width="1.6"/>
+<rect x="300.0" y="250.0" width="424.4" height="46.0" rx="4.0" fill="#17171a" opacity="1.000"/>
+<rect x="300.0" y="250.0" width="3.0" height="46.0" rx="0.0" fill="#a88cff" opacity="1.000"/>
+<text x="110.0" y="93.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">SFN Logs</text>
+<text x="87.4" y="160.8" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Журнал</text>
+<text x="93.2" y="208.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Поиск</text>
+<text x="70.2" y="256.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Настройки</text>
+<text x="71.1" y="304.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">О скрипте</text>
+<text x="60.0" y="521.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v2.0.13</text>
+<text x="60.0" y="539.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">API: ок</text>
+<text x="218.0" y="86.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">&lt;</text>
+<text x="234.0" y="85.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Журнал состава</text>
+<text x="763.8" y="122.0" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">R Обновить</text>
+<text x="900.1" y="122.0" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">M Состав из /members</text>
+<text x="236.7" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Никнейм</text>
+<text x="350.4" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Кто принял</text>
+<text x="561.9" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Ранг</text>
+<text x="712.5" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Повышен</text>
+<text x="814.8" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">След. повышение</text>
+<text x="995.2" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Ур.</text>
+<text x="1120.6" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Статус</text>
+<text x="219.1" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Nina_Sokolova</text>
+<text x="351.1" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Dmitry_Orlov</text>
+<text x="476.4" y="173.5" fill="#a88cff" opacity="1.000" font-size="13.5" xml:space="preserve">Главный редактор [...</text>
+<text x="709.3" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">25.09.2026</text>
+<text x="853.5" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">02.10.2026</text>
+<text x="1004.5" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">2</text>
+<text x="1039.3" y="173.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">нужен 9 ур. (сейчас 2)</text>
+<text x="236.0" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Fox_River</text>
+<text x="351.4" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Kate_Morgan</text>
+<text x="476.4" y="203.5" fill="#a88cff" opacity="1.000" font-size="13.5" xml:space="preserve">Главный редактор [...</text>
+<text x="709.3" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">26.09.2026</text>
+<text x="853.5" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">03.10.2026</text>
+<text x="1004.5" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">7</text>
+<text x="1039.3" y="203.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">нужен 9 ур. (сейчас 7)</text>
+<text x="219.1" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Alexey_Volkov</text>
+<text x="349.1" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Nina_Sokolova</text>
+<text x="519.6" y="233.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Репортёр [4]</text>
+<text x="709.3" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">25.09.2026</text>
+<text x="853.5" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">28.09.2026</text>
+<text x="999.7" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">13</text>
+<text x="1086.0" y="233.5" fill="#ffc43d" opacity="1.000" font-size="13.5" xml:space="preserve">через 23ч 00м</text>
+<text x="226.4" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Ivan_Petrov</text>
+<text x="366.0" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Fox_River</text>
+<text x="519.6" y="263.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Репортёр [4]</text>
+<text x="709.3" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">27.09.2026</text>
+<text x="853.5" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">30.09.2026</text>
+<text x="1004.5" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">4</text>
+<text x="1090.8" y="263.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">через 2д 11ч</text>
+<text x="221.1" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Dmitry_Orlov</text>
+<text x="356.4" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Ivan_Petrov</text>
+<text x="531.1" y="293.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Стажёр [1]</text>
+<text x="709.3" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">24.09.2026</text>
+<text x="853.5" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">25.09.2026</text>
+<text x="1004.5" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">5</text>
+<text x="1075.4" y="293.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">МОЖНО ПОВЫШАТЬ</text>
+<text x="221.4" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Kate_Morgan</text>
+<text x="349.1" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Alexey_Volkov</text>
+<text x="531.1" y="323.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Стажёр [1]</text>
+<text x="709.3" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">26.09.2026</text>
+<text x="853.5" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">27.09.2026</text>
+<text x="999.7" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">10</text>
+<text x="1075.4" y="323.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">МОЖНО ПОВЫШАТЬ</text>
+<text x="312.0" y="270.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Fox_River</text>
+<text x="312.0" y="288.5" fill="#a88cff" opacity="1.000" font-size="13.5" xml:space="preserve">Главный редактор [7]</text>
+<text x="310.0" y="331.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">Повысить до: Технический директор [...</text>
+<text x="310.0" y="391.5" fill="#ffc43d" opacity="1.000" font-size="13.5" xml:space="preserve">Понизить на ранг</text>
+<text x="310.0" y="451.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">История изменений</text>
+<text x="310.0" y="511.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Обновить из API</text>
+<text x="310.0" y="581.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">Уволить</text>
+</svg>
