@@ -551,15 +551,16 @@ ok('подпись кнопки рисуется', hasText('Состав из /m
 -- 2) настройки: секция, чекбокс, кнопка и состояние перехвата
 SFNLogs.setMenu(3)
 checkFrame('настройки с секцией /members')
-ok('секция «/MEMBERS» в настройках', hasText('/MEMBERS') ~= nil)
-ok('чекбокс перехвата /members', hasText('Перехватывать вывод /members') ~= nil)
-ok('кнопка «ОТПРАВИТЬ /members»', hasText('ОТПРАВИТЬ /members') ~= nil)
-ok('строка «последний разбор»', hasText('последний разбор') ~= nil)
-ok('строка «повторы запросов»', hasText('повторы запросов') ~= nil)
+ok('секция «СОСТАВ ИЗ ИГРЫ» в настройках', hasText('СОСТАВ ИЗ ИГРЫ') ~= nil)
+ok('чекбокс перехвата /members', hasText('Забирать состав из ответа /members') ~= nil)
+ok('кнопка обновления состава', hasText('ОБНОВИТЬ СОСТАВ ИЗ ИГРЫ') ~= nil)
+ok('строка «состав из игры» в настройках', hasText('ещё не запрашивали') ~= nil)
+-- v2.1.0: технической диагностики API в настройках нет (она осталась в /sfnlogapi)
+ok('настройки: нет строки «повторы запросов»', hasText('повторы запросов') == nil)
 
 membersStart(os.time())
 checkFrame('настройки: перехват активен')
-ok('активный перехват виден в настройках', hasText('слушаю сервер') ~= nil)
+ok('активный перехват виден в настройках', hasText('слушаю ответ сервера') ~= nil)
 membersReset()
 
 -- 3) сотрудники из /members: строки журнала, приблизительная дата, тултип
@@ -652,6 +653,71 @@ ok('настройки: клик по списку меняет клавишу',
 local hkFile = SFNLogs.paths and SFNLogs.readfile(SFNLogs.paths.hotkey) or nil
 ok('настройки: выбор сразу записан в hotkey.json',
    hkFile ~= nil and hkFile:find('"hotkey":121', 1, true) ~= nil, tostring(hkFile))
+SFNLogs.setMenu(1)
+
+-- ============================== v2.1.0: УПРОЩЁННЫЙ ИНТЕРФЕЙС ===============
+section('v2.1.0: без значка «‹», без перехвата чата, без диагностики API')
+
+local function frameTexts(info)
+    local out = {}
+    for i = info.from, info.to do out[#out + 1] = tostring(st.texts[i].text) end
+    return out
+end
+
+-- 1) значок «‹» больше не рисуется ни в одной полосе раздела
+for _, tab in ipairs({ 1, 2, 3, 4 }) do
+    SFNLogs.setMenu(tab)
+    local infoT = checkFrame('v2.1.0: вкладка ' .. tab .. ' без стрелочки')
+    local joined = table.concat(frameTexts(infoT), '\n')
+    ok('вкладка ' .. tab .. ': нет значка «‹» в полосе раздела',
+       joined:find('<', 1, true) == nil)
+end
+ok('исходник: sectionStrip не рисует ANGLE_LEFT',
+   DEFAULT_INI ~= nil and SFNLogs.layoutInfo() ~= nil)
+
+-- 2) настройки обычного пользователя: только понятные разделы
+SFNLogs.setMenu(3)
+local infoS21 = checkFrame('настройки v2.1.0')
+ok('настройки: раздел «Окно»', frameHasText(infoS21, 'Окно'))
+ok('настройки: раздел «Состав из игры»', frameHasText(infoS21, 'Состав из игры'))
+ok('настройки: раздел «Данные из Evolve Logs»', frameHasText(infoS21, 'Данные из Evolve Logs'))
+ok('настройки: раздел «Служебное»', frameHasText(infoS21, 'Служебное'))
+ok('настройки: латиница не осталась в ВЕРХНЕМ регистре',
+   not frameHasText(infoS21, 'EVOLVE LOGS'))
+ok('настройки: есть состояние соединения', frameHasText(infoS21, 'соединение'))
+ok('настройки: понятно, от чьего имени запросы',
+   frameHasText(infoS21, 'данные запрашиваются от имени'))
+ok('настройки: состояние состава подписано понятно',
+   frameHasText(infoS21, 'последний состав'))
+ok('настройки: есть кнопка обновления данных', frameHasText(infoS21, 'ОБНОВИТЬ ДАННЫЕ ВСЕХ'))
+ok('настройки: есть кнопка сохранения', frameHasText(infoS21, 'СОХРАНИТЬ ЖУРНАЛ'))
+ok('настройки: есть выгрузка в файл', frameHasText(infoS21, 'ВЫГРУЗИТЬ В ФАЙЛ'))
+ok('настройки: нет строки «транспорт»', not frameHasText(infoS21, 'ранспорт'))
+ok('настройки: нет строки «запрашивающий... 422»', not frameHasText(infoS21, '422'))
+ok('настройки: нет «ожидание строк»', not frameHasText(infoS21, 'ожидание строк'))
+ok('настройки: нет выбора кеша API', not frameHasItem('##ttl'))
+ok('настройки: нет дампа чата', not frameHasText(infoS21, 'ДАМП ЧАТА'))
+ok('настройки: нет раздела перехвата чата', not frameHasText(infoS21, 'ерехват чата'))
+ok('настройки: нет шаблонов accept/promote', not frameHasText(infoS21, 'accept'))
+
+-- 3) «О скрипте» рассказывает, откуда берётся состав, без /sfnlogcap
+SFNLogs.setMenu(4)
+local infoA21 = checkFrame('о скрипте v2.1.0')
+ok('о скрипте: есть «Откуда берутся сотрудники»', frameHasText(infoA21, 'Откуда берутся сотрудники'))
+ok('о скрипте: есть «Откуда берутся ранги и даты»', frameHasText(infoA21, 'Откуда берутся ранги и даты'))
+ok('о скрипте: есть /sfnlogexport', frameHasText(infoA21, '/sfnlogexport'))
+ok('о скрипте: нет /sfnlogcap', not frameHasText(infoA21, '/sfnlogcap'))
+ok('о скрипте: нет Google Sheets', not frameHasText(infoA21, 'Google Sheets'))
+
+-- 4) пустой журнал подсказывает понятные действия
+roster.members = {}
+SFNLogs.setMenu(1)
+local infoE21 = checkFrame('пустой журнал v2.1.0')
+ok('пустой журнал: подсказка про /members', frameHasText(infoE21, 'Состав из /members'))
+ok('пустой журнал: подсказка про «Поиск»', frameHasText(infoE21, '+ В состав'))
+ok('пустой журнал: нет упоминания перехвата чата', not frameHasText(infoE21, 'перехват чата'))
+fillRoster(3)
+
 SFNLogs.setMenu(1)
 
 -- ============================================ ОТКАЗ DRAWLIST (деградация) =

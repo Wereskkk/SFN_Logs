@@ -19,20 +19,29 @@
 <text x="93.2" y="208.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Поиск</text>
 <text x="70.2" y="256.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Настройки</text>
 <text x="71.1" y="304.8" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">О скрипте</text>
-<text x="60.0" y="521.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v2.0.13</text>
-<text x="60.0" y="539.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">API: ок</text>
-<text x="218.0" y="86.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">&lt;</text>
-<text x="234.0" y="85.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">О скрипте</text>
+<text x="60.0" y="521.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v2.1.0</text>
+<text x="60.0" y="539.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">Данные: ок</text>
+<text x="220.0" y="85.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">О скрипте</text>
 <text x="212.0" y="117.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">SFN Logs</text>
-<text x="212.0" y="149.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">версия 2.0.13   San Fierro News</text>
-<text x="212.0" y="197.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Источник данных о рангах — официальный журнал Evolve Role Play:</text>
-<text x="212.0" y="221.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">    https://api.evolvelogs.ru  фракция 9 (SF News), сервер saint-louis</text>
-<text x="212.0" y="245.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Синхронизации через Google Sheets больше нет: серверные логи</text>
-<text x="212.0" y="269.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">уже содержат приёмы, повышения, понижения и увольнения.</text>
-<text x="212.0" y="317.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Команды:</text>
-<text x="212.0" y="341.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    /sfnlog — окно    /sfnlogcap — дамп чата    /sfnlogsave — сохранить</text>
-<text x="212.0" y="365.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    /sfnlogadd Ник [КтоПринял]    /sfnlogapi — статус API и повторов</text>
-<text x="212.0" y="389.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    /sfnlogmembers — запросить онлайн-состав у сервера (/members)</text>
-<text x="212.0" y="437.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Оформление — визуальный язык Evolve Logs (Mary_Norton), воспроизведено</text>
-<text x="212.0" y="461.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">по исходникам modules/ui.lua с согласия владельцев журнала.</text>
+<text x="212.0" y="149.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">версия 2.1.0   San Fierro News</text>
+<text x="212.0" y="197.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Что делает скрипт</text>
+<text x="212.0" y="221.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    Ведёт журнал состава редакции: кто принят, кем и когда, какой ранг,</text>
+<text x="212.0" y="245.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    когда повышение уже можно давать. Следит за лимитом должностей</text>
+<text x="212.0" y="269.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    старшего состава и минимальными уровнями.</text>
+<text x="212.0" y="317.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Откуда берутся сотрудники</text>
+<text x="212.0" y="341.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    «Журнал» -&gt; «Состав из /members»: скрипт сам отправляет команду и</text>
+<text x="212.0" y="365.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    разбирает ответ сервера (онлайн-состав фракции).</text>
+<text x="212.0" y="389.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    «Поиск» -&gt; «+ В состав»: любой игрок по нику, в том числе не в игре.</text>
+<text x="212.0" y="413.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    /sfnlogadd Ник [КтоПринял]: добавить стажёра вручную.</text>
+<text x="212.0" y="461.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Откуда берутся ранги и даты</text>
+<text x="212.0" y="485.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    Из официального журнала Evolve Role Play (https://api.evolvelogs.ru).</text>
+<text x="212.0" y="509.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    Скрипт обновляет данные сам, в фоне, и не мешает игре.</text>
+<text x="212.0" y="557.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Команды</text>
+<text x="212.0" y="581.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    /sfnlog - окно (или клавиша из настроек, по умолчанию F8)</text>
+<text x="212.0" y="605.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    /sfnlogmembers - запросить онлайн-состав у сервера</text>
+<text x="212.0" y="629.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    /sfnlogadd Ник [КтоПринял] - добавить стажёра</text>
+<text x="212.0" y="653.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">    /sfnlogsave - сохранить журнал    /sfnlogexport - выгрузить в файл</text>
+<text x="212.0" y="677.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">    /sfnlogapi и /sfnlogui - диагностика (нужна только при неполадках)</text>
+<text x="212.0" y="725.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Оформление — визуальный язык Evolve Logs (Mary_Norton), воспроизведено</text>
+<text x="212.0" y="749.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">по исходникам modules/ui.lua с согласия владельцев журнала.</text>
 </svg>

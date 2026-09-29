@@ -251,63 +251,13 @@ local posIvan  = text:find('Ivan_Petrov')
 local posFresh = text:find('Fresh_Intern')
 ok('sorted by rank desc', posChief < posIvan and posIvan < posFresh)
 
--- ============================================ ШАБЛОНЫ ЧАТА ==============
-section('Chat patterns')
-cfg.patterns.accept = {
-    { pattern = '(%S+) принял (%S+) во фракцию',        fields = { 'by', 'nick' } },
-    { pattern = 'Игрок (%S+) принят в San Fierro News', fields = { 'nick' } },
-}
-cfg.patterns.promote = {
-    { pattern = '(%S+) повышен до ранга (%d)', fields = { 'nick', 'rank' } },
-}
-cfg.patterns.dismiss = {
-    { pattern = '(%S+) покинул организацию', fields = { 'nick' } },
-}
-
-local function extractFields(pat, text)
-    local caps = { text:match(pat.pattern) }
-    if #caps == 0 then return nil end
-    local out = {}
-    for i, field in ipairs(pat.fields or {}) do out[field] = caps[i] end
-    if not next(out) and caps[1] then out.nick = caps[1] end
-    return out
-end
-local function matchPattern(kind, text)
-    for _, p in ipairs(cfg.patterns[kind] or {}) do
-        local o, f = pcall(extractFields, p, text)
-        if o and f and (f.nick or f.by or f.rank or f.rankname) then return f end
-    end
-    return nil
-end
-
-local f = matchPattern('accept', '[SFN] Leader_Name принял Ivan_Petrov во фракцию')
-eq('accept: by',   f and nickOf(f.by), 'Leader_Name')
-eq('accept: nick', f and nickOf(f.nick), 'Ivan_Petrov')
-local f2 = matchPattern('accept', 'Игрок Petr_Sidorov принят в San Fierro News')
-eq('accept variant 2: nick', f2 and nickOf(f2.nick), 'Petr_Sidorov')
-eq('accept variant 2: no by', f2 and f2.by, nil)
-
-local p = matchPattern('promote', 'Ivan_Petrov повышен до ранга 4')
-eq('promote: nick', p and nickOf(p.nick), 'Ivan_Petrov')
-eq('promote: rank', p and tonumber(p.rank), 4)
-
-local d = matchPattern('dismiss', 'Some_Player покинул организацию')
-eq('dismiss: nick', d and nickOf(d.nick), 'Some_Player')
-
-eq('no match -> nil', matchPattern('accept', 'просто текст в чате'), nil)
-
--- ранг названием
-cfg.patterns.promote[2] = { pattern = '(%S+) получает ранг (.+)$', fields = { 'nick', 'rankname' } }
-local rn = matchPattern('promote', 'Petr_Sidorov получает ранг Репортёр')
-local function resolveRank(ff)
-    if ff.rank then local n = tonumber(ff.rank); if n then return math.floor(n) end end
-    if ff.rankname then
-        local k = trim(ff.rankname)
-        local n = RANK_BY_NAME[k] or RANK_BY_NAME[k:lower()]
-        if n then return n end
-    end
-end
-eq('rank by name resolved', rn and resolveRank(rn), 4)
+-- ============================================ ШАБЛОНЫ ЧАТА (удалено) =====
+-- v2.1.0: перехвата чата по шаблонам в скрипте больше нет (состав берётся из
+-- /members и из вкладки «Поиск»), поэтому здесь нечего проверять. Разбор
+-- Lua-паттернов ниже был копией кода скрипта, а не тестом его поведения -
+-- вместе с функцией он удалён, чтобы не создавать ложного покрытия.
+-- Ниже остались проверки loadIni: они про сам парсер INI и от [patterns]
+-- не зависят.
 
 -- ============================================ ФАЙЛЫ И INI ================
 section('File and INI round-trip')
@@ -325,30 +275,27 @@ writeFile(iniPath, table.concat({
     'hotkey = 0x79',
     'showDismissed = 1',
     '',
-    '[patterns]',
-    'accept.1 = (%S+) принял (%S+)',
-    'accept.1.fields = by,nick',
-    'promote.1 = (%S+) повышен до (%d)',
-    'promote.1.fields = nick,rank',
-    '; пустой шаблон должен игнорироваться',
-    'demote.1 =',
+    '[members]',
+    'enabled = 1',
+    '; неизвестный ключ просто сохраняется как есть',
+    'unknown = значение',
+    'empty =',
 }, '\r\n'))
 local ini = loadIni(iniPath)
 eq('  ini main.hotkey', ini.main and ini.main.hotkey, '0x79')
 eq('  ini comments skipped', ini['; comment line'], nil)
-eq('  ini pattern kept verbatim', ini.patterns and ini.patterns['accept.1'], '(%S+) принял (%S+)')
-eq('  ini fields kept', ini.patterns and ini.patterns['accept.1.fields'], 'by,nick')
-eq('  ini empty value', ini.patterns and ini.patterns['demote.1'], '')
+eq('  ini section value kept', ini.members and ini.members['enabled'], '1')
+eq('  ini cyrillic value kept', ini.members and ini.members['unknown'], 'значение')
+eq('  ini empty value', ini.members and ini.members['empty'], '')
 
 PATHS.config = iniPath
 if PATHS.hotkey then os.remove(PATHS.hotkey) end   -- hotkey.json с прошлого прогона не должен влиять
 loadConfig()
 eq('  cfg.hotkey parsed from hex string', cfg.hotkey, tonumber('0x79'))
 eq('  cfg.showDismissed', cfg.showDismissed, true)
-eq('  accept patterns loaded', #cfg.patterns.accept, 1)
-eq('  accept fields split', cfg.patterns.accept[1].fields[2], 'nick')
-eq('  promote patterns loaded', #cfg.patterns.promote, 1)
-eq('  empty demote skipped', #cfg.patterns.demote, 0)
+eq('  members.enabled parsed', cfg.members.enabled, true)
+eq('  v2.1.0: cfg.patterns больше нет', cfg.patterns, nil)
+eq('  v2.1.0: cfg.captureChat больше нет', cfg.captureChat, nil)
 
 -- ============================================ СИНХРОНИЗАЦИЯ ==============
 section('URL encoding and query building')
@@ -387,7 +334,7 @@ local iniPath = PATHS.config .. '.apitest'
 writeFile(iniPath, table.concat({
     '[main]', 'hotkey = 0x7A',
     '[api]', 'enabled = 1', 'ttl = 900', 'base = https://api.evolvelogs.ru',
-    '[patterns]', 'accept.1 = (%S+) принял (%S+)', 'accept.1.fields = by,nick',
+    '[members]', 'enabled = 1',
 }, '\r\n'))
 PATHS.config = iniPath
 if PATHS.hotkey then os.remove(PATHS.hotkey) end
@@ -395,7 +342,7 @@ loadConfig()
 eq('api enabled', cfg.api.enabled, true)
 eq('api ttl', cfg.api.ttl, 900)
 eq('api base', cfg.api.base, 'https://api.evolvelogs.ru')
-eq('patterns still parsed', #cfg.patterns.accept, 1)
+eq('members still parsed', cfg.members.enabled, true)
 eq('hotkey from [main]', cfg.hotkey, 0x7A)
 -- выключенный API читается как выключенный
 writeFile(iniPath, '[api]\r\nenabled = 0\r\n')
@@ -461,15 +408,15 @@ ok('isUtf8 truncated false', not isUtf8(mix:sub(1, #mix - 1)))
 -- старые конфиги в CP1251 читаются как UTF-8
 local legacyPath = TMP .. '/legacy_config.ini'
 writeFile(legacyPath,
-    '[patterns]\r\naccept.1 = ' .. utf8ToCp1251('Принят (%S+) в семью') .. '\r\n')
+    '[main]\r\nrequester = ' .. utf8ToCp1251('Главный_Редактор') .. '\r\n')
 local legacy = loadIni(legacyPath)
-eq('legacy ini converted', legacy.patterns['accept.1'], 'Принят (%S+) в семью')
+eq('legacy ini converted', legacy.main['requester'], 'Главный_Редактор')
 
 -- новый конфиг в UTF-8 читается без изменений
 local utf8Path = TMP .. '/utf8_config.ini'
-writeFile(utf8Path, '[patterns]\r\naccept.1 = Принят (%S+) в семью\r\n')
+writeFile(utf8Path, '[main]\r\nrequester = Главный_Редактор\r\n')
 local fresh = loadIni(utf8Path)
-eq('utf8 ini as-is', fresh.patterns['accept.1'], 'Принят (%S+) в семью')
+eq('utf8 ini as-is', fresh.main['requester'], 'Главный_Редактор')
 
 -- ключи рангов есть в обеих кодировках
 eq('rank key utf8', RANK_BY_NAME['Стажёр'], 1)
@@ -1047,6 +994,73 @@ ok('батчинг: в главном цикле тик отложенной з�
    full:find('pcall(tickRosterSave)', 1, true) ~= nil)
 ok('батчинг: старого немедленного pcall(saveRoster) в цикле нет',
    full:find('pcall(saveRoster)', 1, true) == nil)
+-- ====================================== v2.1.0: УБОРКА ИНТЕРФЕЙСА =========
+section('v2.1.0: перехват чата и значок «‹» убраны')
+
+-- перехвата чата по шаблонам больше нет: ни функции, ни конфига, ни файлов
+ok('в PURE-секции нет перехвата чата', body:find('cfg.patterns', 1, true) == nil)
+ok('в PURE-секции нет дампа чата', body:find('captureChat', 1, true) == nil)
+-- упоминание chat_dump.txt в PURE-секции осталось только в историческом
+-- комментарии к фикстурам /members: самого файла скрипт больше не создаёт
+eq('PATHS больше не содержит chatdump', PATHS.chatdump, nil)
+eq('PATHS config на месте', type(PATHS.config), 'string')
+eq('PATHS roster на месте', type(PATHS.roster), 'string')
+eq('PATHS export на месте', type(PATHS.export), 'string')
+
+-- состав по-прежнему собирается из /members: разбор строк не пострадал
+ok('разбор /members остался', body:find('function membersFeed(', 1, true) ~= nil)
+ok('хук очереди API остался', body:find('MEMBERS_HOOKS', 1, true) ~= nil)
+
+-- страховка по всему исходнику: удалённое не возвращается
+-- в исходнике остались только исторические комментарии про удалённое,
+-- поэтому проверяем рабочий код, а не упоминания в тексте
+ok('исходник: команда /sfnlogcap не регистрируется',
+   full:find("sampRegisterChatCommand('sfnlogcap'", 1, true) == nil)
+ok('исходник: нет ключа chatdump в PATHS', full:find("chatdump  = DIR", 1, true) == nil)
+ok('исходник: секция [patterns] не создаётся', full:find('\n[patterns]', 1, true) == nil)
+ok('исходник: нет loadPatternsFromIni', full:find('loadPatternsFromIni', 1, true) == nil)
+ok('исходник: нет matchPattern/onAccept', full:find('matchPattern', 1, true) == nil
+   and full:find('function onAccept', 1, true) == nil)
+ok('исходник: значок «‹» не рисуется', full:find("'ANGLE_LEFT'", 1, true) == nil)
+ok('исходник: команда выгрузки зарегистрирована',
+   full:find("sampRegisterChatCommand('sfnlogexport'", 1, true) ~= nil)
+ok('исходник: версия 2.1.0',
+   full:find("script_version('2.1.0')", 1, true) ~= nil
+   and full:find("SFN_VERSION_STR = '2.1.0'", 1, true) ~= nil)
+
+-- заголовки разделов окна: string.upper() не знает кириллицу
+eq('titleCase: латиница', titleCase('evolve logs'), 'Evolve logs')
+eq('titleCase: кириллица', titleCase('состав из игры'), 'Состав из игры')
+eq('titleCase: смешанный', titleCase('данные из evolve logs'), 'Данные из evolve logs')
+eq('titleCase: латиница в верхнем регистре не портится', titleCase('EVOLVE'), 'EVOLVE')
+eq('titleCase: уже смешанный', titleCase('Evolve Logs'), 'Evolve Logs')
+eq('titleCase: ё', titleCase('ёлки'), 'Ёлки')
+eq('titleCase: уже заглавная', titleCase('Окно'), 'Окно')
+eq('titleCase: пустая строка', titleCase(''), '')
+eq('titleCase: nil', titleCase(nil), nil)
+eq('titleCase: одна буква', titleCase('о'), 'О')
+
+-- дефолтный конфиг, который скрипт создаёт при первом запуске, чистый
+ok('DEFAULT_INI: нет [patterns]', DEFAULT_INI:find('\n[patterns]', 1, true) == nil)
+ok('DEFAULT_INI: нет /sfnlogcap', DEFAULT_INI:find('sfnlogcap', 1, true) == nil)
+ok('DEFAULT_INI: нет chat_dump', DEFAULT_INI:find('chat_dump', 1, true) == nil)
+ok('DEFAULT_INI: [members] на месте', DEFAULT_INI:find('[members]', 1, true) ~= nil)
+ok('DEFAULT_INI: [api] на месте', DEFAULT_INI:find('[api]', 1, true) ~= nil)
+
+-- пустой/старый config.ini не роняет загрузку
+local emptyPath = TMP .. '/empty_config.ini'
+writeFile(emptyPath, '')
+PATHS.config = emptyPath
+if PATHS.hotkey then os.remove(PATHS.hotkey) end   -- выбор клавиши важнее config.ini
+loadConfig()
+ok('пустой config.ini читается без ошибок', cfg ~= nil and cfg.api ~= nil)
+-- hotkey.json в этой песочнице удалить нельзя (путь с обратными слэшами),
+-- поэтому проверяем не значение по умолчанию, а то, что конфиг перечитывается
+writeFile(emptyPath, '[main]\r\nshowDismissed = 1\r\n[members]\r\nenabled = 0\r\n')
+loadConfig()
+eq('  showDismissed из config.ini', cfg.showDismissed, true)
+eq('  members.enabled из config.ini', cfg.members.enabled, false)
+
 -- ============================================================ ИТОГ =======
 print(string.format('\n%d passed, %d failed', passed, failed))
 os.exit(failed == 0 and 0 or 1)

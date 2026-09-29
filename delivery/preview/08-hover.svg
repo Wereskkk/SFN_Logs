@@ -29,10 +29,9 @@
 <text x="93.2" y="208.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Поиск</text>
 <text x="70.2" y="256.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Настройки</text>
 <text x="71.1" y="304.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">О скрипте</text>
-<text x="60.0" y="521.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v2.0.12</text>
-<text x="60.0" y="539.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">API: ок</text>
-<text x="218.0" y="86.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">&lt;</text>
-<text x="234.0" y="85.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Журнал состава</text>
+<text x="60.0" y="521.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v2.1.0</text>
+<text x="60.0" y="539.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">Данные: ок</text>
+<text x="220.0" y="85.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Журнал состава</text>
 <text x="763.8" y="122.0" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">R Обновить</text>
 <text x="900.1" y="122.0" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">M Состав из /members</text>
 <text x="236.7" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Никнейм</text>
@@ -45,47 +44,47 @@
 <text x="219.1" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Nina_Sokolova</text>
 <text x="351.1" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Dmitry_Orlov</text>
 <text x="476.4" y="173.5" fill="#a88cff" opacity="1.000" font-size="13.5" xml:space="preserve">Главный редактор [...</text>
-<text x="709.3" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">25.09.2026</text>
-<text x="853.5" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">02.10.2026</text>
+<text x="709.3" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">27.09.2026</text>
+<text x="853.5" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">04.10.2026</text>
 <text x="1004.5" y="173.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">2</text>
 <text x="1039.3" y="173.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">нужен 9 ур. (сейчас 2)</text>
 <text x="236.0" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Fox_River</text>
 <text x="351.4" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Kate_Morgan</text>
 <text x="476.4" y="203.5" fill="#a88cff" opacity="1.000" font-size="13.5" xml:space="preserve">Главный редактор [...</text>
-<text x="709.3" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">26.09.2026</text>
-<text x="853.5" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">03.10.2026</text>
+<text x="709.3" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">28.09.2026</text>
+<text x="853.5" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">05.10.2026</text>
 <text x="1004.5" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">7</text>
 <text x="1039.3" y="203.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">нужен 9 ур. (сейчас 7)</text>
 <text x="4000.0" y="4013.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Fox_River</text>
-<text x="4000.0" y="4029.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">ранг по API: нет данных</text>
-<text x="4000.0" y="4045.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">кеш API: пусто</text>
+<text x="4000.0" y="4029.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">последнее событие: нет данных</text>
+<text x="4000.0" y="4045.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">данные ещё не загружались</text>
 <text x="4000.0" y="4061.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">клик — меню сотрудника</text>
 <text x="219.1" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Alexey_Volkov</text>
 <text x="349.1" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Nina_Sokolova</text>
 <text x="519.6" y="233.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Репортёр [4]</text>
-<text x="709.3" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">25.09.2026</text>
-<text x="853.5" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">28.09.2026</text>
+<text x="709.3" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">27.09.2026</text>
+<text x="853.5" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">30.09.2026</text>
 <text x="999.7" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">13</text>
 <text x="1086.0" y="233.5" fill="#ffc43d" opacity="1.000" font-size="13.5" xml:space="preserve">через 23ч 00м</text>
 <text x="226.4" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Ivan_Petrov</text>
 <text x="366.0" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Fox_River</text>
 <text x="519.6" y="263.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Репортёр [4]</text>
-<text x="709.3" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">27.09.2026</text>
-<text x="853.5" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">30.09.2026</text>
+<text x="709.3" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">29.09.2026</text>
+<text x="853.5" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">02.10.2026</text>
 <text x="1004.5" y="263.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">4</text>
 <text x="1090.8" y="263.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">через 2д 11ч</text>
 <text x="221.1" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Dmitry_Orlov</text>
 <text x="356.4" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Ivan_Petrov</text>
 <text x="531.1" y="293.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Стажёр [1]</text>
-<text x="709.3" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">24.09.2026</text>
-<text x="853.5" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">25.09.2026</text>
+<text x="709.3" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">26.09.2026</text>
+<text x="853.5" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">27.09.2026</text>
 <text x="1004.5" y="293.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">5</text>
 <text x="1075.4" y="293.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">МОЖНО ПОВЫШАТЬ</text>
 <text x="221.4" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Kate_Morgan</text>
 <text x="349.1" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Alexey_Volkov</text>
 <text x="531.1" y="323.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Стажёр [1]</text>
-<text x="709.3" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">26.09.2026</text>
-<text x="853.5" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">27.09.2026</text>
+<text x="709.3" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">28.09.2026</text>
+<text x="853.5" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">29.09.2026</text>
 <text x="999.7" y="323.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">10</text>
 <text x="1075.4" y="323.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">МОЖНО ПОВЫШАТЬ</text>
 </svg>

@@ -29,10 +29,9 @@
 <text x="93.2" y="208.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Поиск</text>
 <text x="70.2" y="256.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Настройки</text>
 <text x="71.1" y="304.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">О скрипте</text>
-<text x="60.0" y="521.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v2.0.13</text>
-<text x="60.0" y="539.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">API: ок</text>
-<text x="218.0" y="86.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">&lt;</text>
-<text x="234.0" y="85.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Журнал состава</text>
+<text x="60.0" y="521.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v2.1.0</text>
+<text x="60.0" y="539.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">Данные: ок</text>
+<text x="220.0" y="85.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Журнал состава</text>
 <text x="971.3" y="122.0" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">R Обновить</text>
 <text x="1107.6" y="122.0" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">M Состав из /members</text>
 <text x="260.6" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Никнейм</text>
@@ -57,8 +56,8 @@
 <text x="1107.4" y="203.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">0</text>
 <text x="1139.6" y="203.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">дата приблизительная (/member...</text>
 <text x="4000.0" y="4013.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Aru_Traxer</text>
-<text x="4000.0" y="4029.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">ранг по API: нет данных</text>
-<text x="4000.0" y="4045.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">кеш API: пусто</text>
+<text x="4000.0" y="4029.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">последнее событие: нет данных</text>
+<text x="4000.0" y="4045.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">данные ещё не загружались</text>
 <text x="4000.0" y="4061.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">вход (/members): 22.09.2026 21:47</text>
 <text x="4000.0" y="4077.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">клик — меню сотрудника</text>
 <text x="247.8" y="233.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Garik_Grifon</text>
@@ -110,14 +109,14 @@
 <text x="956.4" y="413.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">08.09.2026</text>
 <text x="1107.4" y="413.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">0</text>
 <text x="1139.6" y="413.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">дата приблизительная (/member...</text>
-<text x="242.8" y="443.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Anna_Malboro</text>
+<text x="238.0" y="443.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Sonya_Malboro</text>
 <text x="448.6" y="443.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">—</text>
 <text x="595.0" y="443.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Репортёр [4]</text>
 <text x="812.2" y="443.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">23.09.2026</text>
 <text x="956.4" y="443.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">26.09.2026</text>
 <text x="1107.4" y="443.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">0</text>
 <text x="1139.6" y="443.5" fill="#f25959" opacity="1.000" font-size="13.5" xml:space="preserve">дата приблизительная (/member...</text>
-<text x="238.0" y="473.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Sonya_Malboro</text>
+<text x="242.8" y="473.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Anna_Malboro</text>
 <text x="448.6" y="473.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">—</text>
 <text x="595.0" y="473.5" fill="#72a5e5" opacity="1.000" font-size="13.5" xml:space="preserve">Репортёр [4]</text>
 <text x="812.2" y="473.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">23.09.2026</text>

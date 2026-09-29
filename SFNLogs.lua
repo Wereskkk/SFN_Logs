@@ -1,5 +1,5 @@
 script_name('SFN Logs')
-script_version('2.0.13')
+script_version('2.1.0')
 script_author('San Fierro News')
 
 --[[
@@ -15,10 +15,9 @@ script_author('San Fierro News')
     сервер saint-louis. Синхронизации через Google Sheets больше нет.
 
     Файлы (создаются в moonloader\SFNLogs\):
-        config.ini      шаблоны перехвата чата, хоткей, настройки [api]
+        config.ini      хоткей, настройки [api] и [members]
         roster.json     журнал состава + кеш ответов API
-        chat_dump.txt   дамп чата в режиме ловли шаблонов
-        export.txt      результат экспорта
+        export.txt      результат экспорта (/sfnlogexport)
         api_N.json       временные файлы ответов (транспорт downloadUrlToFile)
 
     КОДИРОВКА: внутри скрипт везде работает в UTF-8 (файлы, окно, синхронизация).
@@ -28,12 +27,18 @@ script_author('San Fierro News')
 
     Команды:
         /sfnlog             открыть/закрыть окно
-        /sfnlogcap          включить/выключить дамп чата (снятие шаблонов)
         /sfnlogsave         принудительно сохранить
+        /sfnlogexport       выгрузить журнал в export.txt
         /sfnlogadd Ник [КтоПринял]   добавить стажёра с текущей датой
         /sfnlogmembers      отправить /members и перехватить онлайн-состав
-        /sfnlogapi          статус Evolve Logs API (транспорт, очередь, повторы)
+        /sfnlogapi          статус Evolve Logs API (для диагностики)
         /sfnlogui           диагностика интерфейса (DPI, метрики, ошибки)
+
+    ОТКУДА БЕРЁТСЯ СОСТАВ (v2.1.0): перехвата чата по шаблонам больше нет -
+    список сотрудников собирается из вывода серверной команды /members и из
+    вкладки «Поиск» (кнопка «+ В состав»), плюс ручное /sfnlogadd. Ранг и даты
+    событий добираются из Evolve Logs API. Команда /sfnlogcap и файл
+    chat_dump.txt удалены вместе с секцией [patterns] в config.ini.
 
     СОСТАВ ИЗ /members: серверная команда /members печатает онлайн-состав
     фракции (ID, последний вход, ник, ранг, «На работе/Выходной», AFK).
@@ -44,7 +49,7 @@ script_author('San Fierro News')
     получены / «записей нет» (404 NOT_FOUND) — вопрос закрыт, сетевой сбой —
     повтор с растущей паузой (по умолчанию до 3 попыток), затем откат.
 
-    ИНТЕРФЕЙС (v1.2.0) — собственная дизайн-система «SFN On Air»:
+    ИНТЕРФЕЙС (v2.1.0) — собственная дизайн-система «SFN On Air»:
         - размеры окна нет фиксированных: оно пересчитывается каждый кадр под
           содержимое активной вкладки и ограничивается размером экрана;
         - ширины колонок измеряются по фактическому тексту (CalcTextSize),
@@ -52,7 +57,12 @@ script_author('San Fierro News')
         - все отступы масштабируются на imgui.GetDpiScale() — mimgui по
           умолчанию увеличивает шрифт и стиль под DPI, и без этого вёрстка
           разъезжалась на масштабе 125/150%;
-        - вкладки: Состав, История (лента событий журнала), Настройки;
+        - вкладки: Журнал, Поиск, Настройки, О скрипте;
+        - полосы разделов рисуются без значка «‹»: он выглядел как кнопка
+          «назад», которой на самом деле не существует (v2.1.0);
+        - в настройках нет технической диагностики API (транспорт, повторы,
+          кеш) - только то, что нужно в игре: клавиша окна, состав из
+          /members, состояние соединения и кнопки обновления/сохранения;
         - если в конкретной сборке mimgui чего-то из DrawList не окажется,
           окно деградирует до простого текстового вида и пишет об этом в чат
           (см. SFNLogs.lastUiError и /sfnlogui), а не роняет скрипт.
@@ -88,7 +98,6 @@ local DIR = (getWorkingDirectory and getWorkingDirectory() or '.') .. '\\SFNLogs
 local PATHS = {
     config    = DIR .. '\\config.ini',
     roster    = DIR .. '\\roster.json',
-    chatdump  = DIR .. '\\chat_dump.txt',
     export    = DIR .. '\\export.txt',
     hotkey    = DIR .. '\\hotkey.json',
 }
@@ -299,13 +308,6 @@ local function writeFile(path, data)
     return true
 end
 
-local function appendFile(path, data)
-    local f = io.open(path, 'a')
-    if not f then return end
-    f:write(data)
-    f:close()
-end
-
 -- ================================================================ INI =====
 
 local function loadIni(path)
@@ -483,6 +485,25 @@ local function utf8Seq(s, i)
         cp = cp * 0x40 + (c - 0x80)
     end
     return cp, len
+end
+
+-- Первая буква заглавная, остальные не трогаем. Нужен для заголовков разделов
+-- в окне: string.upper()/string.lower() в Lua знают только ASCII, поэтому
+-- «данные из evolve logs» превращалось в «данные из EVOLVE LOGS» - латиница
+-- заглавная, кириллица нет. Кириллическая заглавная собирается вручную из
+-- кодовой точки (U+0410-U+042F, U+0401); остальные символы отдаются как есть.
+function titleCase(s)
+    if type(s) ~= 'string' or s == '' then return s end
+    local b = s:byte(1)
+    if b < 0x80 then return (s:sub(1, 1):upper()) .. s:sub(2) end
+    local cp, len = utf8Seq(s, 1)
+    if not cp then return s end
+    if cp >= 0x0430 and cp <= 0x044F then cp = cp - 0x20        -- а-я -> А-Я
+    elseif cp == 0x0451 then cp = 0x0401                        -- ё -> Ё
+    else return s end                                           -- уже заглавная/не буква
+    local nb = 0xD0
+    if cp > 0x43F then nb = 0xD1; cp = cp - 0x40 end
+    return string.char(nb, 0x80 + (cp % 0x40)) .. s:sub(len + 1)
 end
 
 function utf8ToCp1251(s)
@@ -731,9 +752,7 @@ roster    = { members = {}, version = 1 }
 
 cfg = {
     hotkey              = 0x77,     -- F8 (Win32 VK 0x77; см. HOTKEY_OPTIONS)
-    captureChat         = false,
     showDismissed       = false,
-    patterns            = { accept = {}, promote = {}, demote = {}, dismiss = {} },
     members = {
         enabled = true,             -- перехват вывода /members
     },
@@ -910,39 +929,6 @@ giveUp = 600
 ; Строки разбираются автоматически, ники уходят в очередь Evolve Logs API.
 ; /sfnlogmembers - отправить /members и начать перехват.
 enabled = 1
-
-[patterns]
-; Шаблон - обычный Lua-паттерн. Захваты (скобки) перечисляются в строке
-; .fields через запятую, в том же порядке. Допустимые имена:
-;   nick      ник игрока
-;   by        ник того, кто совершил действие (принял / повысил)
-;   rank      новый ранг цифрой
-;   rankname  новый ранг названием
-;
-; Вариантов одного события может быть несколько: accept.1, accept.2, ...
-; Пустой шаблон просто пропускается.
-;
-; Как снять точные тексты своего сервера:
-;   1) /sfnlogcap           - включится дамп в SFNLogs\chat_dump.txt
-;   2) примите и повысьте кого-нибудь на тестовом аккаунте
-;   3) /sfnlogcap ещё раз, скопируйте строки из chat_dump.txt сюда
-;   4) в окне вкладка "Настройки" -> "Перечитать config.ini"
-
-; Приём во фракцию: кто принял + кого приняли
-accept.1 =
-accept.1.fields = by,nick
-
-; Повышение: кого повысили + до какого ранга (цифрой или названием)
-promote.1 =
-promote.1.fields = nick,rank
-
-; Понижение (необязательно)
-demote.1 =
-demote.1.fields = nick,rank
-
-; Увольнение / выход из фракции (нужно для авто-ЧС)
-dismiss.1 =
-dismiss.1.fields = nick
 ]]
 
 -- Запись roster.json - батчинг (фикс 2.0.13): раньше файл писался после
@@ -981,23 +967,6 @@ function rosterSaveInterval(v)
     return ROSTER_SAVE_INTERVAL
 end
 
-function loadPatternsFromIni(ini)
-    local p = ini.patterns or {}
-    for _, kind in ipairs({ 'accept', 'promote', 'demote', 'dismiss' }) do
-        cfg.patterns[kind] = {}
-        for i = 1, 16 do
-            local raw = p[kind .. '.' .. i]
-            if raw and raw ~= '' then
-                local fields = {}
-                for name in (p[kind .. '.' .. i .. '.fields'] or ''):gmatch('[^,%s]+') do
-                    fields[#fields + 1] = name
-                end
-                cfg.patterns[kind][#cfg.patterns[kind] + 1] = { pattern = raw, fields = fields }
-            end
-        end
-    end
-end
-
 function loadConfig()
     local ini = loadIni(PATHS.config)
     if not next(ini) then
@@ -1034,7 +1003,6 @@ function loadConfig()
     cfg.members = cfg.members or {}
     cfg.members.enabled = flag(mm.enabled, true)
 
-    loadPatternsFromIni(ini)
     loadHotkey()   -- выбор из настроек (hotkey.json) важнее config.ini
 end
 
@@ -1473,107 +1441,24 @@ local function logEvent(text)
     print(utf8ToCp1251('[SFN Logs] ' .. text))
 end
 
--- ============================================ ПЕРЕХВАТ ЧАТА ==============
-
-local function extractFields(pat, text)
-    local caps = { text:match(pat.pattern) }
-    if #caps == 0 then return nil end
-    local out = {}
-    for i, field in ipairs(pat.fields or {}) do out[field] = caps[i] end
-    if not next(out) and caps[1] then out.nick = caps[1] end
-    return out
-end
-
-local function resolveRank(f)
-    if f.rank then
-        local n = tonumber(f.rank)
-        if n then return math.floor(n) end
-    end
-    if f.rankname then
-        local key = trim(f.rankname)
-        local n = RANK_BY_NAME[key] or RANK_BY_NAME[key:lower()]
-        if n then return n end
-    end
-    return nil
-end
-
-local function matchPattern(kind, text)
-    for _, p in ipairs(cfg.patterns[kind] or {}) do
-        local ok, f = pcall(extractFields, p, text)
-        if ok and f and (f.nick or f.by or f.rank or f.rankname) then return f end
-    end
-    return nil
-end
-
-local function onAccept(text)
-    local f = matchPattern('accept', text)
-    if not f or not f.nick then return end
-    local nick = nickOf(f.nick)
-    local existing = roster.members[nick]
-    if existing then
-        if f.by and trim(existing.acceptedBy or '') == '' then
-            existing.acceptedBy = nickOf(f.by)
-            saveRoster()
-            logEvent('уточнено, кто принял: ' .. nick .. ' <- ' .. existing.acceptedBy)
-        end
-        return
-    end
-    local by = f.by and nickOf(f.by) or ''
-    local m, err = addMember(nick, by, os.time(), 1, levelOf(nick))
-    if m then
-        logEvent(string.format('принят %s (принял: %s)', nick, by ~= '' and by or '?'))
-        SFNLogs.api.refresh(nick, true)      -- официальные данные из журнала
-    else logEvent('не удалось добавить ' .. nick .. ': ' .. tostring(err)) end
-end
-
-local function onRankChange(text, demote)
-    local f = matchPattern(demote and 'demote' or 'promote', text)
-    if not f or not f.nick then return end
-    local nick = nickOf(f.nick)
-    local newRank = resolveRank(f)
-    if not newRank then return end
-    local m = roster.members[nick]
-    if not m then
-        logEvent(string.format('%s %s до %d, но игрока нет в журнале',
-            nick, demote and 'понижен' or 'повышен', newRank))
-        return
-    end
-    if changeRank(nick, newRank, demote and 'понижен (чат)' or 'повышен (чат)') then
-        logEvent(string.format('%s -> %s [%d]', nick, rankName(newRank), newRank))
-        SFNLogs.api.refresh(nick, false)     -- сверяем с официальным журналом
-    end
-end
-
-local function onDismiss(text)
-    local f = matchPattern('dismiss', text)
-    if not f or not f.nick then return end
-    local nick = nickOf(f.nick)
-    local m = roster.members[nick]
-    if m and not m.dismissed then
-        dismissMember(nick, 'по сообщению в чате')
-        logEvent('уволен ' .. nick)
-        SFNLogs.api.refresh(nick, false)
-    end
-end
+-- ============================================ ПЕРЕХВАТ СООБЩЕНИЙ СЕРВЕРА ==
+--
+-- v2.1.0: перехвата чата по шаблонам больше нет. Раньше состав пополнялся
+-- регулярными шаблонами из config.ini ([patterns] accept/promote/demote/
+-- dismiss), а точные тексты сервера снимались дампом чата (/sfnlogcap ->
+-- chat_dump.txt). На практике это требовало от пользователя править Lua-
+-- паттерны в конфиге, а шаблоны всё равно расходились с формулировками
+-- Evolve RP. Теперь список сотрудников берётся из двух понятных источников:
+--   * вывод серверной команды /members  (онлайн-состав фракции);
+--   * вкладка «Поиск» -> «+ В состав»    (любой игрок по нику, данные из API).
+-- plus ручное добавление /sfnlogadd. Ранги и даты событий - из Evolve Logs API.
 
 local function onServerMessage(color, text)
     if type(text) ~= 'string' then return end
     -- чат приходит байтами CP1251: дальше по скрипту всё живёт в UTF-8
     text = cp1251ToUtf8(text)
-    if cfg.captureChat then
-        appendFile(PATHS.chatdump, os.date('[%d.%m.%Y %H:%M:%S] ') .. text .. '\n')
-    end
-    -- вывод /members разбирается до шаблонов событий: его строки не должны
-    -- случайно совпасть с пользовательскими паттернами приёма/повышения
+    -- единственное, что мы разбираем в чате, - блок строк /members
     pcall(membersFeed, text)
-    pcall(onAccept, text)
-    pcall(onRankChange, text, false)
-    pcall(onRankChange, text, true)
-    pcall(onDismiss, text)
-end
-
-if sampev then
-    function sampev.onServerMessage(color, text) onServerMessage(color, text) end
 end
 
 SFNLogs = SFNLogs or {}
@@ -1593,8 +1478,9 @@ SFNLogs = SFNLogs or {}
 --
 -- Ограничения API, которые учитывает клиент:
 --   * списка состава фракции нет — есть только записи по конкретному нику,
---     поэтому индекс сотрудников ведётся локально (перехват чата, ручной
---     ввод, roster.json), а API дополняет каждую запись официальными данными;
+--     поэтому индекс сотрудников ведётся локально (вывод /members, «Поиск»,
+--     /sfnlogadd, roster.json), а API дополняет каждую запись официальными
+--     данными;
 --   * /v1/journal отдаёт последнюю запись, /v1/journal/history — всю историю;
 --   * отсутствие данных — это 404 для journal и пустой массив для history;
 --   * флуд-лимит сервера — 4 запроса в секунду, поэтому фоновый поток делает
@@ -1729,14 +1615,6 @@ end
 local function apiRequester()
     if cfg.api.requester and cfg.api.requester ~= '' then return cfg.api.requester end
     return (localNick and localNick ~= '') and localNick or 'SFNLogs'
-end
-
-local function requesterLabel()
-    if cfg.api.requester and cfg.api.requester ~= '' then
-        return cfg.api.requester .. '  (из config.ini)'
-    end
-    if localNick ~= '' then return localNick .. '  (ваш ник в игре)' end
-    return '(ник появится в игре)'
 end
 
 -- Статусы колбэка downloadUrlToFile(id, status, ...) - коды таблицы
@@ -2315,8 +2193,9 @@ SFNLogs.api = {
 --
 -- Оформление — визуальный язык Evolve Logs (скриншот v1.0.0 и исходники
 -- modules/ui.lua): тёмный сайдбар 160 px с логотипом и градиентными кнопками
--- меню, малиновый акцент 0.725/0.180/0.263, полоса раздела с градиентом и
--- значком «‹», таблица с тонкими вертикальными разделителями и центрированными
+-- меню, малиновый акцент 0.725/0.180/0.263, полоса раздела с градиентом (без
+-- значка «‹» — он читался как несуществующая кнопка «назад»), таблица с
+-- тонкими вертикальными разделителями и центрированными
 -- заголовками, шрифты arial 13 / arial 15.5 / trebucbd 20 и иконки
 -- FontAwesome 6, влитые в дефолтный шрифт.
 --
@@ -2331,7 +2210,7 @@ SFNLogs.api = {
 
 local win = imgui.new.bool(false)
 
-local SFN_VERSION_STR = '2.0.13'
+local SFN_VERSION_STR = '2.1.0'
 
 -- ---------------------------------------------------------- палитра -------
 -- Значения взяты из modules/ui.lua их проекта (DarkTheme + drawSideMenu).
@@ -2791,13 +2670,16 @@ end
 -- Полоса раздела тянется на ВСЮ ширину содержимого, как на скриншоте v1.0.0
 -- (градиент гаснет вправо). Один невидимый ряд фиксированной высоты: без
 -- двойного advance, из-за которого между полосой и следующим рядом зияла дыра.
-local function sectionStrip(w, label, icon)
+--
+-- v2.1.0: значок «‹» слева от подписи убран. Он достался из оформления
+-- Evolve Logs, где это «назад», но у нас никакой кнопки за ним нет - значок
+-- только провоцировал клик в пустое место. Подпись придвинута к левому краю.
+local function sectionStrip(w, label)
     local dl = winDL()
     local x, y = cursorXY()
     gradH(dl, x, y, w, S(20), RGBf(0.9, 0.3, 0.3, 0.10), RGBf(0.4, 0.4, 0.4, 0))
-    drawText(dl, x + S(6), y + S(3), I(icon or 'ANGLE_LEFT', '<'), C.textFaint)
     pushFont(fonts.smal)
-    drawText(dl, x + S(22), y + S(2), label, C.accentText)
+    drawText(dl, x + S(8), y + S(2), label, C.accentText)
     popFont(fonts.smal)
     return S(20)
 end
@@ -2852,8 +2734,8 @@ local function drawSidebar(h)
                 or (st.err and C.blocked)
                 or C.ready
     drawTextClipped(dl, x + S(8), vy + lineH + S(2),
-                    cfg.api.enabled and ('API: ' .. (st.busy and 'запрос...' or (st.err and 'ошибка' or 'ок')))
-                                    or 'API: выкл',
+                    cfg.api.enabled and ('Данные: ' .. (st.busy and 'запрос...' or (st.err and 'ошибка' or 'ок')))
+                                    or 'Данные: выкл',
                     apiCol, S(SIDEBAR_W) - S(16))
     return (vy + lineH * 2) - y
 end
@@ -2865,7 +2747,7 @@ end
 -- очередь Evolve Logs API автоматически, когда блок строк завершится.
 local function sendMembersCommand()
     if not (cfg.members and cfg.members.enabled) then
-        say('{FFAA00}[SFN Logs] перехват /members выключен: config.ini, [members] enabled = 1')
+        say('{FFAA00}[SFN Logs] состав из /members выключен: включите галочку в Настройках (или [members] enabled = 1 в config.ini)')
         return false
     end
     if not sampSendChat then
@@ -2945,10 +2827,10 @@ local function drawJournalBody(w, h, now, rows, widths)
         imgui.Dummy(V(w, S(56)))
         drawText(dl, ex + S(6), ey + S(8), 'в журнале пока нет записей', C.textDim)
         drawText(dl, ex + S(6), ey + S(8) + lineH + S(4),
-                 'API журнала отвечает только по нику (player=...): состав собирается',
+                 'нажмите «Состав из /members» - скрипт заберёт онлайн-состав фракции',
                  C.textFaint)
         drawText(dl, ex + S(6), ey + S(8) + (lineH + S(4)) * 2,
-                 'через «Состав из /members», перехват чата или Поиск -> В состав',
+                 'игрока не в игре можно добавить во вкладке «Поиск» -> «+ В состав»',
                  C.textFaint)
     else
         for idx, r in ipairs(visible) do
@@ -2979,9 +2861,10 @@ local function drawJournalBody(w, h, now, rows, widths)
             if hovered then
                 local m = r._m
                 local lines = { m.nick,
-                    string.format('ранг по API: %s', m.apiEvent and ('событие ' .. m.apiEvent) or 'нет данных'),
-                    m.apiMissing and 'в журнале API не найден' or
-                        (r._age and ('кеш API: ' .. fmtLeft(r._age) .. ' назад') or 'кеш API: пусто') }
+                    string.format('последнее событие: %s', m.apiEvent or 'нет данных'),
+                    m.apiMissing and 'в журнале сервера записей нет' or
+                        (r._age and ('данные обновлены ' .. fmtLeft(r._age) .. ' назад')
+                                  or 'данные ещё не загружались') }
                 if m.lastLogin and m.lastLogin > 0 then
                     lines[#lines + 1] = 'вход (/members): ' .. fmtDateTime(m.lastLogin)
                         .. (m.afk and ('  AFK ' .. fmtLeft(m.afk)) or '')
@@ -3126,7 +3009,7 @@ local function drawSearchBody(w, h)
     imgui.BeginChild('##stable', V(w, remainH), false, hscroll)
     local tx, ty = cursorXY()
     if ui.apiBusy then
-        drawText(dl, tx, ty + S(6), I('CLOCK', '') .. ' запрос к API...', C.soon)
+        drawText(dl, tx, ty + S(6), I('CLOCK', '') .. ' запрашиваю журнал сервера...', C.soon)
         advance(lineH + S(10))
     elseif ui.apiErr then
         drawText(dl, tx, ty + S(6), ui.apiErr, C.blocked)
@@ -3180,81 +3063,68 @@ local function drawSearchBody(w, h)
 end
 
 -- ================================================== НАСТРОЙКИ ============
+--
+-- v2.1.0: настройки упрощены до того, что реально нужно в игре. Убраны
+-- раздел «перехват чата» (вместе с самой функцией), техническая диагностика
+-- Evolve Logs API (транспорт, счётчики повторов, ожидание строк) и выбор
+-- времени жизни кеша. Диагностика осталась в командах /sfnlogapi и /sfnlogui -
+-- она нужна при разборе жалоб, а не каждый день.
 
 local function settingsRows()
     local model = {}
     local function add(t, a, b, c) model[#model + 1] = { t = t, a = a, b = b, c = c } end
+
     add('section', 'окно')
     add('hotkey')
     add('checkbox', 'Показывать уволенных в журнале', refShowDismissed,
         function() cfg.showDismissed = refShowDismissed[0] end)
-    add('section', 'перехват чата')
-    for _, kind in ipairs({ 'accept', 'promote', 'demote', 'dismiss' }) do
-        local n = #(cfg.patterns[kind] or {})
-        add('kv', kind, n > 0 and ('шаблонов: ' .. n) or 'не задан',
-            n > 0 and C.ready or C.blocked)
-        for _, p in ipairs(cfg.patterns[kind] or {}) do
-            add('hint', '   ' .. p.pattern)
+
+    add('section', 'состав из игры')
+    add('checkbox', 'Забирать состав из ответа /members', refMembersEnabled,
+        function() cfg.members.enabled = refMembersEnabled[0] end)
+    add('hint', '   кнопка ниже отправляет /members, а скрипт разбирает ответ сервера:')
+    add('hint', '   сотрудники попадают в журнал, ранги и даты добираются из Evolve Logs')
+    local mc = membersCapture
+    add('kv', 'последний состав',
+        mc.active and 'слушаю ответ сервера...'
+            or ((mc.at > 0 and mc.text ~= '') and mc.text or 'ещё не запрашивали'),
+        mc.active and C.soon or ((mc.parsed > 0) and C.ready or C.textDim))
+    add('button', I('USERS', '') .. ' ОБНОВИТЬ СОСТАВ ИЗ ИГРЫ', C.accent, function()
+        sendMembersCommand()
+    end)
+
+    add('section', 'данные из Evolve Logs')
+    local st = SFNLogs.api.status()
+    add('kv', 'данные запрашиваются от имени',
+        (localNick ~= '' and localNick) or 'ваш ник (подставится в игре)',
+        localNick ~= '' and C.text or C.textDim)
+    add('hint', '   журнал Evolve RP отдаёт данные только по нику игрока; если состав')
+    add('hint', '   не обновляется - зайдите в игру и нажмите «Обновить данные всех»')
+    if not cfg.api.enabled then
+        add('kv', 'соединение', 'выключено в config.ini', C.blocked)
+        add('hint', '   работают только локальные данные: включите [api] enabled = 1')
+    else
+        add('kv', 'соединение',
+            st.busy and 'запрашиваю...' or (st.err and 'нет ответа' or 'есть'),
+            st.busy and C.soon or (st.err and C.blocked or C.ready))
+        if st.err then
+            add('hint', '   сервер журнала не ответил; повторим сами. Подробности: /sfnlogapi')
         end
     end
-    add('button', cfg.captureChat and 'ДАМП ЧАТА: ВКЛ' or 'ДАМП ЧАТА: ВЫКЛ', C.accent, function()
-        cfg.captureChat = not cfg.captureChat
-        say(cfg.captureChat
-            and '{66FF66}[SFN Logs] дамп чата включён -> SFNLogs\\chat_dump.txt'
-            or  '{FFAA00}[SFN Logs] дамп чата выключен')
-    end)
-    add('hint', 'или /sfnlogcap   файл: ' .. PATHS.chatdump)
-    add('section', '/members - состав из игры')
-    add('checkbox', 'Перехватывать вывод /members', refMembersEnabled,
-        function() cfg.members.enabled = refMembersEnabled[0] end)
-    add('hint', '   сервер печатает онлайн-состав: ник, ранг, последний вход, AFK;')
-    add('hint', '   ники автоматически уходят в очередь Evolve Logs API')
-    local mc = membersCapture
-    add('kv', 'ожидание строк', mc.active and 'слушаю сервер...' or '—',
-        mc.active and C.soon or C.textDim)
-    add('kv', 'последний разбор',
-        (mc.at > 0 and mc.text ~= '') and mc.text or 'ещё не запускался',
-        (mc.parsed > 0) and C.ready or C.textDim)
-    add('button', 'ОТПРАВИТЬ /members', C.accent, function() sendMembersCommand() end)
-    add('section', 'evolve logs api')
-    add('kv', 'фракция', 'San Fierro News [9]', C.text)
-    add('kv', 'сервер', API_SERVER, C.text)
-    add('kv', 'запрашивающий', requesterLabel(), C.textDim)
-    add('hint', '   requester - ваш ник в игре: без него API отвечает 422;')
-    add('hint', '   поменять: config.ini, секция [api], ключ requester = Ваш_Ник')
-    local st = SFNLogs.api.status()
-    add('kv', 'транспорт', SFNLogs.api.transport() ..
-            (cfg.api.transport ~= 'auto'
-                and '  (закреплено: ' .. cfg.api.transport .. ')'
-                or (st.switched > 0 and '  (авто)' or '')), C.info)
-    add('hint', '   downloadUrlToFile качает в фоне и не блокирует игру;')
-    add('hint', '   requests - крайняя мера после 8 неудач фона подряд (возможны')
-    add('hint', '   подвисания кадра); раз в 5 минут скрипт пробует вернуть фон;')
-    add('hint', '   закрепить: config.ini, [api] transport = auto|download|requests')
-    add('kv', 'состояние', st.busy and 'запрос...' or (st.err or ('ок, запросов: ' .. st.fetched)),
-        st.busy and C.soon or (st.err and C.blocked or C.ready))
-    if st.err then
-        add('hint', '   последняя ошибка: ' .. st.err)
-        add('hint', string.format('   подряд: %d, переключений: %d, пауза: %d мс',
-                                  st.failStreak, st.switched, SFNLogs.api.pauseMs()))
-    end
-    add('kv', 'повторы запросов', string.format('до %d попыток, пауза %d с',
-        cfg.api.retries, cfg.api.retryPause), C.textDim)
-    if st.retries > 0 or st.gaveUp > 0 or st.retried > 0 then
-        add('hint', string.format('   ждут повтора: %d | в откате: %d | назначено: %d',
-                                  st.retries, st.gaveUp, st.retried))
-    end
-    if st.noData > 0 then
-        add('hint', '   «записей нет» (404): ' .. st.noData .. ' - это ответ API, а не ошибка')
-    end
-    add('ttl')
-    add('button', 'ОБНОВИТЬ ВСЕХ СЕЙЧАС', C.accent, function()
+    add('button', I('ROTATE', '') .. ' ОБНОВИТЬ ДАННЫЕ ВСЕХ', C.text, function()
         SFNLogs.api.refreshAll(true)
-        say('{66FF66}[SFN Logs] весь состав поставлен в очередь API')
+        say('{66FF66}[SFN Logs] весь состав поставлен в очередь обновления')
     end)
     add('button', 'СОХРАНИТЬ ЖУРНАЛ', C.text, function()
         saveRoster(true); say('{66FF66}[SFN Logs] сохранено')
     end)
+    add('button', 'ВЫГРУЗИТЬ В ФАЙЛ', C.textDim, function()
+        local path, n = exportText()
+        say(string.format('{66FF66}[SFN Logs] выгружено %d записей -> %s', n, path))
+    end)
+
+    add('section', 'служебное')
+    add('hint', '   файл настроек: ' .. PATHS.config)
     add('button', 'ПЕРЕЧИТАТЬ config.ini', C.textDim, function()
         loadConfig(); refShowDismissed[0] = cfg.showDismissed
         refMembersEnabled[0] = cfg.members.enabled
@@ -3265,7 +3135,7 @@ end
 
 local function measureSettings(model)
     local w = S(430)
-    local nKv, nHint, nSection, nCheck, nBtn, nHot, nTtl = 0, 0, 0, 0, 0, 0, 0
+    local nKv, nHint, nSection, nCheck, nBtn, nHot = 0, 0, 0, 0, 0, 0
     for _, r in ipairs(model) do
         if r.t == 'kv' then
             nKv = nKv + 1
@@ -3277,7 +3147,6 @@ local function measureSettings(model)
         elseif r.t == 'checkbox' then nCheck = nCheck + 1; w = math.max(w, textW(r.a) + S(60))
         elseif r.t == 'button' then nBtn = nBtn + 1; w = math.max(w, textW(r.a) + S(40))
         elseif r.t == 'hotkey' then nHot = nHot + 1
-        elseif r.t == 'ttl' then nTtl = nTtl + 1
         end
     end
     local h = nSection * (S(20) + S(6) + SPACING_Y)
@@ -3285,7 +3154,6 @@ local function measureSettings(model)
             + nHint * (lineH + S(3) + SPACING_Y)
             + nCheck * (lineH + S(12) + SPACING_Y)
             + nHot * (frameH + S(6) + SPACING_Y)
-            + nTtl * (frameH + S(6) + SPACING_Y)
             + nBtn * (S(26) + S(8) + 2 * SPACING_Y)
             + S(10)
     return w, h
@@ -3298,7 +3166,7 @@ local function drawSettingsBody(w, h)
     local idx = 0
     for _, r in ipairs(model) do
         if r.t == 'section' then
-            advance(sectionStrip(contentW, r.a:upper()) + S(6))
+            advance(sectionStrip(contentW, titleCase(r.a)) + S(6))
         elseif r.t == 'kv' then
             idx = idx + 1
             local x, y = anchoredRow('kv' .. idx, lineH + S(10))
@@ -3344,21 +3212,6 @@ local function drawSettingsBody(w, h)
                 end
                 imgui.EndCombo()
             end
-        elseif r.t == 'ttl' then
-            local x, y = anchoredRow('ttl', frameH + S(6))
-            drawText(dl, x + S(2), y + S(5), 'Кеш ответа API, секунд', C.textDim)
-            local off = textW('Кеш ответа API, секунд') + S(30)
-            sameRow(0)
-            imgui.Dummy(V(math.max(S(2), off - 1), 1))
-            local first = true
-            for _, ttl in ipairs({ 300, 600, 1800 }) do
-                sameRow(first and 0 or S(5))
-                first = false
-                flowButton('ttl' .. ttl, tostring(ttl),
-                           cfg.api.ttl == ttl and C.accent or C.textDim,
-                           function() cfg.api.ttl = ttl end,
-                           textW(tostring(ttl)) + S(18), frameH)
-            end
         elseif r.t == 'button' then
             flowButton('sb' .. idx, r.a, r.b, r.c, textW(r.a) + S(28), S(26))
             idx = idx + 1
@@ -3379,15 +3232,27 @@ local function drawAboutBody(w, h)
     local lines = {
         { 'версия ' .. SFN_VERSION_STR .. '   San Fierro News', C.text },
         { '', C.text },
-        { 'Источник данных о рангах — официальный журнал Evolve Role Play:', C.textDim },
-        { '    ' .. cfg.api.base .. '  фракция 9 (SF News), сервер ' .. API_SERVER, C.info },
-        { 'Синхронизации через Google Sheets больше нет: серверные логи', C.textDim },
-        { 'уже содержат приёмы, повышения, понижения и увольнения.', C.textDim },
+        { 'Что делает скрипт', C.text },
+        { '    Ведёт журнал состава редакции: кто принят, кем и когда, какой ранг,', C.textDim },
+        { '    когда повышение уже можно давать. Следит за лимитом должностей', C.textDim },
+        { '    старшего состава и минимальными уровнями.', C.textDim },
         { '', C.text },
-        { 'Команды:', C.text },
-        { '    /sfnlog — окно    /sfnlogcap — дамп чата    /sfnlogsave — сохранить', C.textDim },
-        { '    /sfnlogadd Ник [КтоПринял]    /sfnlogapi — статус API и повторов', C.textDim },
-        { '    /sfnlogmembers — запросить онлайн-состав у сервера (/members)', C.textDim },
+        { 'Откуда берутся сотрудники', C.text },
+        { '    «Журнал» -> «Состав из /members»: скрипт сам отправляет команду и', C.textDim },
+        { '    разбирает ответ сервера (онлайн-состав фракции).', C.textDim },
+        { '    «Поиск» -> «+ В состав»: любой игрок по нику, в том числе не в игре.', C.textDim },
+        { '    /sfnlogadd Ник [КтоПринял]: добавить стажёра вручную.', C.textDim },
+        { '', C.text },
+        { 'Откуда берутся ранги и даты', C.text },
+        { '    Из официального журнала Evolve Role Play (' .. cfg.api.base .. ').', C.textDim },
+        { '    Скрипт обновляет данные сам, в фоне, и не мешает игре.', C.textDim },
+        { '', C.text },
+        { 'Команды', C.text },
+        { '    /sfnlog - окно (или клавиша из настроек, по умолчанию F8)', C.textDim },
+        { '    /sfnlogmembers - запросить онлайн-состав у сервера', C.textDim },
+        { '    /sfnlogadd Ник [КтоПринял] - добавить стажёра', C.textDim },
+        { '    /sfnlogsave - сохранить журнал    /sfnlogexport - выгрузить в файл', C.textDim },
+        { '    /sfnlogapi и /sfnlogui - диагностика (нужна только при неполадках)', C.textFaint },
         { '', C.text },
         { 'Оформление — визуальный язык Evolve Logs (Mary_Norton), воспроизведено', C.textFaint },
         { 'по исходникам modules/ui.lua с согласия владельцев журнала.', C.textFaint },
@@ -3614,7 +3479,8 @@ local function drawHistoryDialog()
         local ty = ey + (S(20) - lineH) * 0.5
         drawTextClipped(dl, ex + S(9), ty, e.date, C.textFaint, wTime - S(12))
         local k, n = parseApiRank(e.new)
-        local newTxt = (k == 'uninvite') and 'Uninvite' or (e.new ~= '' and e.new or '—')
+        local newTxt = (k == 'uninvite') and 'уволен (Uninvite)'
+                                            or (e.new ~= '' and e.new or '—')
         drawTextClipped(dl, ex + wTime, ty, newTxt,
                         (k == 'uninvite') and C.blocked or rankColor(n or 1), wRank - S(12))
         drawTextClipped(dl, ex + wTime + wRank, ty,
@@ -4096,16 +3962,16 @@ end)
 
 -- ============================================================ КОМАНДЫ =====
 
-local function toggleCapture()
-    cfg.captureChat = not cfg.captureChat
-    say(cfg.captureChat
-        and '{66FF66}[SFN Logs] дамп чата включён -> SFNLogs\\chat_dump.txt'
-        or  '{FFAA00}[SFN Logs] дамп чата выключен')
-end
-
 local function registerCommands()
     sampRegisterChatCommand('sfnlog', function() win[0] = not win[0] end)
-    sampRegisterChatCommand('sfnlogcap', toggleCapture)
+    -- v2.1.0: /sfnlogcap (дамп чата для снятия шаблонов) удалён вместе с
+    -- перехватом чата. Выгрузка журнала, наоборот, возвращена командой:
+    -- в 2.0.12 кнопку «Экспорт» из окна убрали, а команду не зарегистрировали,
+    -- поэтому export.txt обычному пользователю стал недоступен вовсе.
+    sampRegisterChatCommand('sfnlogexport', function()
+        local path, n = exportText()
+        say(string.format('{66FF66}[SFN Logs] выгружено %d записей -> %s', n, path))
+    end)
     sampRegisterChatCommand('sfnlogapi', function(param)
         if tostring(param or ''):match('all') then
             SFNLogs.api.refreshAll(true)
@@ -4182,7 +4048,7 @@ function main()
     ensureDir()
     if not sampev then
         logEvent('samp.events не загрузился (' .. tostring(sampevErr) ..
-                 ') - автоперехват чата отключён, журнал работает в ручном режиме')
+                 ') - вывод /members не перехватывается, журнал работает в ручном режиме')
     end
     loadConfig()
     loadRoster()
@@ -4202,14 +4068,15 @@ function main()
     local lastOnline, lastNick = os.time(), os.time()
     say(string.format('{66FF66}[SFN Logs] v%s загружен. /sfnlog - окно, /sfnlogmembers - состав из игры', SFN_VERSION_STR))
     if cfg.api.enabled then
-        say(string.format('{AAAAAA}[SFN Logs] источник данных: Evolve Logs API, SF News [9] @ %s (%s)',
-            API_SERVER, SFNLogs.api.transport()))
+        -- v2.1.0: без имени транспорта в чате - это внутренняя деталь, она
+        -- нужна только при диагностике и видна в /sfnlogapi.
+        say(string.format('{AAAAAA}[SFN Logs] данные о рангах: журнал Evolve RP, SF News [9] @ %s', API_SERVER))
         SFNLogs.api.refreshAll(false)      -- первый прогон по составу
     else
-        say('{FFAA00}[SFN Logs] API выключен в config.ini [api] - работают только локальные данные')
+        say('{FFAA00}[SFN Logs] обновление из журнала Evolve RP выключено в config.ini [api] - работаем по локальным данным')
     end
     if not sampev then
-        say('{FFAA00}[SFN Logs] нет samp.events - автоперехват чата выключен, вносите состав вручную')
+        say('{FFAA00}[SFN Logs] нет samp.events - состав из /members не перехватывается, добавляйте сотрудников вручную')
     end
 
     while true do

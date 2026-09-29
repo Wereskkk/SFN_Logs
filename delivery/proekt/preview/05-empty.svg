@@ -28,10 +28,9 @@
 <text x="93.2" y="208.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Поиск</text>
 <text x="70.2" y="256.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Настройки</text>
 <text x="71.1" y="304.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">О скрипте</text>
-<text x="60.0" y="521.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v2.0.13</text>
-<text x="60.0" y="539.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">API: ок</text>
-<text x="218.0" y="86.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">&lt;</text>
-<text x="234.0" y="85.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Журнал состава</text>
+<text x="60.0" y="521.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v2.1.0</text>
+<text x="60.0" y="539.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">Данные: ок</text>
+<text x="220.0" y="85.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Журнал состава</text>
 <text x="548.8" y="122.0" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">R Обновить</text>
 <text x="685.2" y="122.0" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">M Состав из /members</text>
 <text x="236.7" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Никнейм</text>
@@ -42,6 +41,6 @@
 <text x="885.9" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Ур.</text>
 <text x="958.4" y="146.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">Статус</text>
 <text x="218.0" y="177.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">в журнале пока нет записей</text>
-<text x="218.0" y="197.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">API журнала отвечает только по нику (player=...): состав собирается</text>
-<text x="218.0" y="217.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">через «Состав из /members», перехват чата или Поиск -&gt; В состав</text>
+<text x="218.0" y="197.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">нажмите «Состав из /members» - скрипт заберёт онлайн-состав фракции</text>
+<text x="218.0" y="217.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">игрока не в игре можно добавить во вкладке «Поиск» -&gt; «+ В состав»</text>
 </svg>
