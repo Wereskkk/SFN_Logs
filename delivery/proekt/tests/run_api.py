@@ -7,6 +7,10 @@ os.chdir(ROOT)
 os.makedirs('/tmp/sfntest_api', exist_ok=True)
 
 L = lupa.LuaRuntime(unpack_returned_tuples=True)
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import _runner
+_runner.install_hooks(L)           # Lua print/os.exit -> Python (см. tests/_runner.py)
 L.execute("package.path = './?.lua;./?/init.lua;' .. package.path")
 L.execute("""
 os = os or {}
@@ -48,8 +52,4 @@ end
 
 test = open('tests/test_api.lua', encoding='utf-8').read()
 tchunk = L.eval("function(s) local c,e = load(s,'test_api.lua') if not c then error(e) end return c end")(test)
-try:
-    tchunk()
-except lupa.LuaError as e:
-    print("[runner] ОШИБКА ВЫПОЛНЕНИЯ:", e)
-    sys.exit(2)
+sys.exit(_runner.run_lua(L, tchunk, "api"))

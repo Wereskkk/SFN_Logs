@@ -7,6 +7,10 @@ os.chdir(ROOT)
 os.makedirs('/tmp/sfntest_ui', exist_ok=True)
 
 L = lupa.LuaRuntime(unpack_returned_tuples=True)
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import _runner
+_runner.install_hooks(L)           # Lua print/os.exit -> Python (см. tests/_runner.py)
 g = L.globals()
 
 # package.path для require 'tests.mock_imgui'
@@ -54,8 +58,4 @@ print("[runner] SFNLogs.lua загружен")
 
 test = open('test_ui.lua', encoding='utf-8').read()
 tchunk = L.eval("function(s) local c,e = load(s,'test_ui.lua') if not c then error(e) end return c end")(test)
-try:
-    tchunk()
-except lupa.LuaError as e:
-    print("[runner] ОШИБКА ВЫПОЛНЕНИЯ:", e)
-    sys.exit(2)
+sys.exit(_runner.run_lua(L, tchunk, "ui"))

@@ -1,0 +1,84 @@
+name: tests
+
+# Регресс-тесты на каждый push и pull request.
+#
+# Смысл: автообновление (2.2.0) подменяет файл скрипта у каждого игрока
+# автоматически, поэтому красная ветка main — это не «неудобно», а поломка
+# у всех пользователей сразу. Прогон обязателен до вливания.
+#
+# Наборы (счётчики сверяются с README.md, раздел «Проверка»):
+#   logic  544 — бизнес-логика: правила повышений, JSON, кодировки, разбор
+#                /members, версии обновления, saveConfig;
+#   ui     247 — вёрстка на headless-моке mimgui: наложения текста, выход за
+#                границы окна, баланс Begin/End и Push/Pop, DPI, fallback;
+#   api    145 — сетевой слой: статусы 6/58, гонка «статус раньше тела»,
+#                тишина, 404 NOT_FOUND, повторы и откат, автообновление;
+#   strict     — отдельная проверка, что DrawList жив и окно не деградировало
+#                в текстовый режим (цвета и примитивы реально вызываются).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: delivery/proekt
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Зависимости (lupa = Lua 5.4 внутри Python)
+        run: |
+          python -m pip install --upgrade pip
+          pip install lupa
+
+      - name: Синтаксис всех четырёх копий SFNLogs.lua
+        run: |
+          python - <<'PY'
+          import io, sys
+          import lupa
+          L = lupa.LuaRuntime()
+          paths = ["SFNLogs.lua",
+                   "delivery/SFNLogs.lua",
+                   "delivery/proekt/SFNLogs.lua",
+                   "delivery/moonloader_pack/SFNLogs.lua"]
+          bad = 0
+          for p in paths:
+              src = io.open(p, encoding="utf-8").read()
+              res = L.eval("function(s) local c,e = load(s,'x') return c and 'OK' or tostring(e) end")(src)
+              print(f"{res:4s}  {p}")
+              if res != "OK":
+                  bad += 1
+          sys.exit(1 if bad else 0)
+          PY
+        working-directory: .
+
+      - name: Копии SFNLogs.lua не разъехались
+        run: python delivery/proekt/tools/sync_delivery.py --check
+        working-directory: .
+
+      - name: Бизнес-логика (test_logic.lua)
+        run: python tests/run_logic.py
+
+      - name: Вёрстка окна (test_ui.lua)
+        run: python tests/run_ui.py
+
+      - name: Строгая проверка цветов и DrawList
+        run: python tests/run_ui_strict_colors.py
+
+      - name: Сетевой слой и автообновление (tests/test_api.lua)
+        run: python tests/run_api.py
+
+      - name: Превью разделов собираются без ошибок раскладки
+        run: python tests/render_svg.py
