@@ -1,5 +1,5 @@
 script_name('SFN Logs')
-script_version('2.2.1')
+script_version('2.2.2')
 script_author('San Fierro News')
 
 -- Версия одна на весь файл и объявлена в самом верху.
@@ -10,7 +10,7 @@ script_author('San Fierro News')
 -- поэтому SFN_VERSION_STR читался там как глобальный nil, и любая проверка
 -- обновления отвечала «версия не новее текущей nil». Теперь литерал ровно
 -- один, и он обязан совпадать со script_version() (проверяется тестом).
-SFN_VERSION_STR = '2.2.1'
+SFN_VERSION_STR = '2.2.2'
 
 --[[
     Журнал состава San Fierro News.
@@ -60,6 +60,14 @@ SFN_VERSION_STR = '2.2.1'
     каждый ник в очередь Evolve Logs API. Ответ API проверяется: данные
     получены / «записей нет» (404 NOT_FOUND) — вопрос закрыт, сетевой сбой —
     повтор с растущей паузой (по умолчанию до 3 попыток), затем откат.
+
+    СКРОЛЛ СПИСКОВ (v2.2.2): полоса раздела, панель кнопок и шапка таблицы в
+    «Журнале» и «Поиске» закреплены - прокручиваются только строки, внутри
+    своей полосы с клипом (баг-репорт со скриншотами: при скролле панель
+    «Обновить / Состав из /members» уезжала вместе со списком и ложилась
+    поверх строк). Тело этих вкладок закреплено флагами NoScrollbar +
+    NoScrollWithMouse и SetScrollY(0); шапки таблиц вынесены из скролл-
+    регионов; строки обрезаны клип-прямоугольником полосы.
 
     ЛОГОТИП (v2.2.1): в сайдбаре — фирменный знак редакции (круг с брызгами и
     буквой E), восстановленный вектором по исходнику assets/logo_source.jpg;
@@ -3413,12 +3421,12 @@ local function drawJournalBody(w, h, now, rows, widths)
     widths, contentW = fitTableWidths(widths, JCOLS, w)
     local headH = S(20)
     local visible = rows
-    local bodyTop = select(2, cursorXY())
-    local remainH = h - (bodyTop - topY)
-    if remainH < S(60) then remainH = S(60) end
 
-    local hscroll = contentW > w + 0.5 and (imgui.WindowFlags.HorizontalScrollbar or 0) or 0
-    imgui.BeginChild('##jtable', V(w, remainH), false, hscroll)
+    -- v2.2.2: шапка таблицы ВНЕТРИ скролл-региона строк, а НАД ним: колонки не
+    -- уходят при прокрутке. Полоса раздела и панель кнопок закреплены тем, что
+    -- тело вкладки не скроллится (см. drawFrame). Прокручиваются только строки,
+    -- и только внутри своей полосы, ограниченной клип-прямоугольником: ни один
+    -- ряд не отрисуется поверх шапки или кнопок ни в какой сборке mimgui.
     local hx, hy = cursorXY()
     local cx = hx
     for i, c in ipairs(JCOLS) do
@@ -3426,13 +3434,24 @@ local function drawJournalBody(w, h, now, rows, widths)
         cx = cx + widths[i]
     end
     hline(dl, hx, hy + headH, math.max(contentW, w), C.border, S(1))
+    advance(headH)
+
+    local bodyTop = select(2, cursorXY())
+    local remainH = h - (bodyTop - topY)
+    if remainH < S(60) then remainH = S(60) end
+
+    local hscroll = contentW > w + 0.5 and (imgui.WindowFlags.HorizontalScrollbar or 0) or 0
+    -- рамка полосы строк: позиция child-окна не зависит от его прокрутки,
+    -- поэтому её можно брать как устойчивый клип-прямоугольник
+    local bx, by = cursorXY()
+    imgui.BeginChild('##jtable', V(w, remainH), false, hscroll)
+    pdraw(dl.PushClipRect, dl, V(bx, by - S(1)), V(bx + math.max(contentW, w), by + remainH), true)
     -- тонкие вертикальные разделители колонок, как в их Columns(..., true)
-    cx = hx
+    cx = bx
     for i = 1, #JCOLS - 1 do
         cx = cx + widths[i]
-        vline(dl, cx, hy, math.max(headH, S(20) + #visible * (rowH)), C.lineSoft, S(1))
+        vline(dl, cx, by, remainH, C.lineSoft, S(1))
     end
-    advance(headH)
 
     if #visible == 0 then
         local ex, ey = cursorXY()
@@ -3487,6 +3506,7 @@ local function drawJournalBody(w, h, now, rows, widths)
             end
         end
     end
+    pdraw(dl.PopClipRect, dl)
     imgui.EndChild()
     -- v2.0.12: ряда «+ Добавить сотрудника / Уровни из игры» под таблицей нет.
     -- Добавление - /sfnlogadd и «Поиск -> В состав», уровни снимаются фоном
@@ -3614,11 +3634,8 @@ local function drawSearchBody(w, h)
     local contentW
     widths, contentW = fitTableWidths(widths, SCOLS, w)
 
-    local stopY = select(2, cursorXY())
-    local remainH = h - (stopY - topY)
-    if remainH < S(60) then remainH = S(60) end
-    local hscroll = contentW > w + 0.5 and (imgui.WindowFlags.HorizontalScrollbar or 0) or 0
-    imgui.BeginChild('##stable', V(w, remainH), false, hscroll)
+    -- v2.2.2: строка состояния и шапка таблицы - над скролл-регионом строк
+    -- (та же причина, что в Журнале: см. комментарий в drawJournalBody)
     local tx, ty = cursorXY()
     if ui.apiBusy then
         drawText(dl, tx, ty + S(6), I('CLOCK', '') .. ' запрашиваю журнал сервера...', C.soon)
@@ -3627,19 +3644,27 @@ local function drawSearchBody(w, h)
         drawText(dl, tx, ty + S(6), ui.apiErr, C.blocked)
         advance(lineH + S(10))
     end
-
-    local cx = tx
+    local hx, hy = cursorXY()
+    local cx = hx
     for i, c in ipairs(SCOLS) do
-        drawTextCentered(dl, cx, ty + S(3), c.head, C.textFaint, widths[i])
+        drawTextCentered(dl, cx, hy + S(3), c.head, C.textFaint, widths[i])
         cx = cx + widths[i]
     end
-    hline(dl, tx, ty + S(20), math.max(contentW, w), C.border, S(1))
-    cx = tx
+    hline(dl, hx, hy + S(20), math.max(contentW, w), C.border, S(1))
+    advance(S(20))
+
+    local stopY = select(2, cursorXY())
+    local remainH = h - (stopY - topY)
+    if remainH < S(60) then remainH = S(60) end
+    local hscroll = contentW > w + 0.5 and (imgui.WindowFlags.HorizontalScrollbar or 0) or 0
+    local bx, by = cursorXY()
+    imgui.BeginChild('##stable', V(w, remainH), false, hscroll)
+    pdraw(dl.PushClipRect, dl, V(bx, by - S(1)), V(bx + math.max(contentW, w), by + remainH), true)
+    cx = bx
     for i = 1, #SCOLS - 1 do
         cx = cx + widths[i]
-        vline(dl, cx, ty, S(20) + #list * (rowH), C.lineSoft, S(1))
+        vline(dl, cx, by, remainH, C.lineSoft, S(1))
     end
-    advance(S(20))
 
     for idx, r in ipairs(list) do
         local rx, ry = cursorXY()
@@ -3671,6 +3696,7 @@ local function drawSearchBody(w, h)
         drawText(dl, ex, ey + S(6), 'введите ник и нажмите лупу', C.textFaint)
         advance(lineH + S(10))
     end
+    pdraw(dl.PopClipRect, dl)
     imgui.EndChild()
 end
 
@@ -4493,7 +4519,23 @@ local function drawFrame(now)
     imgui.SameLine(0, 0)
 
     local bodyW = avail0.x - S(SIDEBAR_W) - S(5)
-    imgui.BeginChild('##body', V(bodyW, avail0.y), false)
+    -- v2.2.2: у Журнала и Поиска собственный скролл-регион строк, поэтому
+    -- внешнее тело закреплено: колесо его не крутит (NoScrollWithMouse),
+    -- полоса-граббер не появляется (NoScrollbar), скролл принудительно 0
+    -- (SetScrollY каждый кадр - сбрасывает всё, что могло накопиться раньше,
+    -- например до этого фикса). Без этого mimgui прокручивал тело на пару
+    -- пикселей округлений и тянул полосу «Журнал состава» и панель кнопок
+    -- вместе со списком (баг-репорт со скриншотами, 30.09.2026).
+    -- Настройки и «О скрипте» внутреннего скроллера не имеют: их тело
+    -- прокручивается как обычно, как страница документа.
+    local bodyFlags = 0
+    if ui.menu == 1 or ui.menu == 2 then
+        bodyFlags = 8 + 16    -- ImGui: NoScrollbar | NoScrollWithMouse (ABI стабилен)
+    end
+    imgui.BeginChild('##body', V(bodyW, avail0.y), false, bodyFlags)
+    if (ui.menu == 1 or ui.menu == 2) and imgui.SetScrollY then
+        imgui.SetScrollY(0)
+    end
     -- содержимое рисуем в ширину минус паддинги child: всё, что меряется по
     -- w (полосы, таблицы, правое прижимание), не должно залезать под обрезку
     local innerW = bodyW - 2 * PADX

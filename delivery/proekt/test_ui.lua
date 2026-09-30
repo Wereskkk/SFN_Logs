@@ -767,6 +767,142 @@ ok('о скрипте: упомянут /reload', frameHasText(infoA22, '/reload
 
 SFNLogs.setMenu(1)
 
+-- ============== v2.2.2: СКРОЛЛ СПИСКА НЕ ТЯНЕТ ШАПКУ, ПАНЕЛЬ И ПОЛОСУ ======
+section('v2.2.2: прокрутка строк не двигает закреплённые элементы')
+
+-- примитивы копятся за все кадры прогрева, поэтому смотрим только последний
+local function lastTexts()
+    local out = {}
+    for _, t in ipairs(st.texts) do
+        if t.frame == st.frames then out[#out + 1] = t end
+    end
+    return out
+end
+local function lastRects()
+    local out = {}
+    for _, r in ipairs(st.rects) do
+        if r.frame == st.frames then out[#out + 1] = r end
+    end
+    return out
+end
+local function gradStripY(rects)
+    for _, r in ipairs(rects) do
+        if r.kind == 'grad' and r.h >= 18 and r.h <= 24 and r.w > 700 then return r.y end
+    end
+end
+local function textY(texts, sub)
+    for _, t in ipairs(texts) do
+        if tostring(t.text):find(sub, 1, true) then return t.y end
+    end
+    return nil
+end
+local function exactY(texts, s)
+    for _, t in ipairs(texts) do
+        if tostring(t.text) == s then return t.y end
+    end
+    return nil
+end
+local function childRect(id)
+    local last = nil
+    for _, c in ipairs(st.childLog) do
+        if c.id == id then last = c end
+    end
+    return last
+end
+local function outsideBand(texts, pattern, band)
+    local n = 0
+    if not band then return -1 end
+    for _, t in ipairs(texts) do
+        local s = tostring(t.text)
+        -- частично видимая строка легальна (клип её режет); считаем только
+        -- полностью уехавшие за полосу
+        if s:find(pattern) and (t.y + t.h < band.y - 1 or t.y > band.y + band.h + 1) then
+            n = n + 1
+        end
+    end
+    return n
+end
+
+fillRoster(40)
+SFNLogs.setMenu(1)
+st.scroll = {}
+local infoSc0 = checkFrame('журнал: прокрутка 0')
+local t0, r0 = lastTexts(), lastRects()
+local strip0, head0, btn0 = gradStripY(r0), textY(t0, 'Никнейм'), textY(t0, ' Обновить')
+local win0 = { x = infoSc0.win.x, y = infoSc0.win.y }
+ok('журнал: полоса, шапка и панель на месте', strip0 ~= nil and head0 ~= nil and btn0 ~= nil)
+local band0 = childRect('##jtable')
+local function bandNicks(texts, band, pattern)
+    local list = {}
+    if not band then return list end
+    for _, t in ipairs(texts) do
+        local s = tostring(t.text)
+        if s:find(pattern) and t.y >= band.y - 1 and t.y + t.h <= band.y + band.h + 1 then
+            list[#list + 1] = { s = s, y = t.y }
+        end
+    end
+    table.sort(list, function(a, b) return a.y < b.y end)
+    return list
+end
+local n0 = bandNicks(t0, band0, '^Member_%d+$')
+ok('журнал: без прокрутки полосы заполнены строками', #n0 > 5, #n0)
+local first0 = n0[1] and n0[1].s
+
+st.scroll['##jtable'] = 300
+local infoSc1 = checkFrame('журнал: прокрутка 300')
+local t1, r1 = lastTexts(), lastRects()
+local band = childRect('##jtable')
+ok('журнал: полоса не двинулась', math.abs((gradStripY(r1) or -1) - strip0) < 0.51,
+   string.format('%.1f vs %.1f', gradStripY(r1) or -1, strip0 or -1))
+ok('журнал: шапка таблицы не двинулась', math.abs((textY(t1, 'Никнейм') or -1) - head0) < 0.51)
+ok('журнал: панель кнопок не двинулась', math.abs((textY(t1, ' Обновить') or -1) - btn0) < 0.51)
+ok('журнал: размер окна не зависит от прокрутки',
+   math.abs(infoSc1.win.x - win0.x) < 0.51 and math.abs(infoSc1.win.y - win0.y) < 0.51)
+local n1 = bandNicks(t1, band, '^Member_%d+$')
+ok('журнал: строки реально прокрутились (первая строка ушла из полосы)',
+   first0 ~= nil and n1[1] ~= nil and n1[1].s ~= first0,
+   tostring(first0) .. ' -> ' .. tostring(n1[1] and n1[1].s))
+ok('журнал: полоса по-прежнему заполнена', #n1 > 5, #n1)
+ok('журнал: строк вне полосы нет', outsideBand(t1, '^Member_%d+$', band) == 0,
+   outsideBand(t1, '^Member_%d+$', band))
+
+-- тело вкладки закреплено: насильный скролл сбрасывается каждый кадр
+st.scroll['##body'] = 150
+checkFrame('журнал: тело со скроллом 150')
+local t2, r2 = lastTexts(), lastRects()
+ok('журнал: полоса не двинулась и при скролле тела',
+   math.abs((gradStripY(r2) or -1) - strip0) < 0.51)
+ok('журнал: SetScrollY(0) сбросил прокрутку тела', (st.scroll['##body'] or 0) == 0,
+   tostring(st.scroll['##body']))
+st.scroll = {}
+
+-- поиск: шапка таблицы результатов тоже закреплена, строки клипуются
+SFNLogs.setMenu(2)
+SFNLogs.ui.apiResults = {}
+for i = 1, 30 do
+    SFNLogs.ui.apiResults[#SFNLogs.ui.apiResults + 1] = {
+        nick = 'Seek_' .. i, by = 'Boss_One', prev = 'Репортёр [4]',
+        new = 'Редактор [6]', date = '01.02.2026', next = '01.05.2026', reason = '',
+    }
+end
+st.scroll = {}
+checkFrame('поиск: прокрутка 0')
+local s0 = lastTexts()
+local shead0 = textY(s0, 'Никнейм')
+ok('поиск: шапка результатов на месте', shead0 ~= nil)
+st.scroll['##stable'] = 240
+checkFrame('поиск: прокрутка 240')
+local s1 = lastRects() and lastTexts()
+local sband = childRect('##stable')
+ok('поиск: шапка результатов не двинулась', math.abs((textY(s1, 'Никнейм') or -1) - shead0) < 0.51)
+ok('поиск: первые строки ушли из полосы', exactY(s1, 'Seek_1') == nil)
+ok('поиск: строк вне полосы нет', outsideBand(s1, '^Seek_%d+$', sband) == 0,
+   outsideBand(s1, '^Seek_%d+$', sband))
+SFNLogs.ui.apiResults = nil
+st.scroll = {}
+fillRoster(3)
+SFNLogs.setMenu(1)
+
 -- ============================================ ОТКАЗ DRAWLIST (деградация) =
 section('аварийный режим без DrawList')
 local savedOk = SFNLogs.layoutInfo().drawListOk

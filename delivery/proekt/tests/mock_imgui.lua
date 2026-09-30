@@ -33,6 +33,8 @@ local st = {
     rects         = {},
     items         = {},     -- интерактивные элементы: {id,x,y,w,h,frame}
     childLog      = {},     -- BeginChild за кадр: {id,flags,frame,x,y,w,h}
+    scroll        = {},     -- test-only: прокрутка child-регионов по id
+                            -- (ImGui: CursorPos = Pos - Scroll)
     popupLog      = {},     -- BeginPopup за кадр: {id,frame,x,y,w,h,sized}
     popAuto       = {},     -- автосайз попапов: id -> {w,h} содержимое прош. кадра
     errors        = {},
@@ -375,12 +377,27 @@ imgui.BeginChild = function(id, size, border, flags)
     local w = (size.x == 0) and (r.x + r.w - st.cursor.x) or size.x
     local h = (size.y == 0) and (r.y + r.h - st.cursor.y) or size.y
     pushRegion('child', id, st.cursor.x, st.cursor.y, w, h)
+    -- верх региона НЕ зависит от его прокрутки: это и есть видимая полоса
+    local topX, topY = st.cursor.x, st.cursor.y
+    -- прокрутка: курсор стартует выше верха региона, как в ImGui
+    local sc0 = st.scroll[id] or 0
+    if sc0 ~= 0 then st.cursor.y = st.cursor.y - sc0 end
     st.stack[st.depth].flags = flags or 0
     -- журнал child-регионов кадра: тесты проверяют, что HorizontalScrollbar
     -- (чёрная полоса-граббер) включается только при настоящем оверфлоу
     st.childLog[#st.childLog + 1] = { id = id, flags = flags or 0, frame = st.frames,
-                                      x = st.cursor.x, y = st.cursor.y, w = w, h = h }
+                                      x = topX, y = topY, w = w, h = h }
     return true
+end
+imgui.GetScrollY = function()
+    local c = st.stack[st.depth]
+    return (c and st.scroll[c.id]) or 0
+end
+imgui.SetScrollY = function(v)
+    local c = st.stack[st.depth]
+    if not c then return end
+    st.scroll[c.id] = v or 0
+    st.cursor.y = c.y - (v or 0)
 end
 imgui.EndChild = function()
     local c = st.stack[st.depth]
@@ -516,9 +533,24 @@ imgui.PopItemWidth = function() st.itemWidth = nil end
 -- ------------------------------------------------------------- отрисовка --
 local function makeDrawList(kind)
     local dl = {}
+    dl._csmap = {}       -- стек клипов НА РЕГИОН: окно/child/тултип не текут друг в друга
+    local function clipStack()
+        local r = region()
+        local k = (r and (r.path or r.id)) or ('/' .. kind)
+        local s = dl._csmap[k]
+        if not s then s = {}; dl._csmap[k] = s end
+        return s
+    end
+    local function clipTop() local s = clipStack() return s[#s] end
+    local function visible(x0, y0, x1, y1)
+        local c = clipTop()
+        if not c then return true end
+        return not (x1 < c[1] or x0 > c[3] or y1 < c[2] or y0 > c[4])
+    end
     dl.AddText = function(self, pos, col, text)
         if type(pos) ~= 'table' then err('AddText: позиция не ImVec2') return end
         local w = measure(text)
+        if not visible(pos.x, pos.y, pos.x + w, pos.y + st.fontH) then return end
         local r = region()
         st.texts[#st.texts + 1] = {
             x = pos.x, y = pos.y, w = w, h = st.fontH, text = text,
@@ -526,33 +558,44 @@ local function makeDrawList(kind)
             path = r and r.path or ('/' .. kind),
             clipped = dl._clipW,
         }
-        -- текст, обрезанный клипом, физически не выходит за границу колонки
-        markUsed(pos.x, pos.y, dl._clipW or w, st.fontH,
+        -- текст, обрезанный клипом, физически не выходит за границу колонки;
+        -- учитываем только клип ТЕКУЩЕГО региона: тултип, открытый из строки
+        -- таблицы, не должен наследовать ширину клипа полосы строк
+        local lim = w
+        local c = clipTop()
+        if c then lim = math.min(w, math.max(0, c[3] - pos.x)) end
+        markUsed(pos.x, pos.y, lim, st.fontH,
                  'text «' .. tostring(text):sub(1, 20) .. '»')
     end
     dl.AddRectFilled = function(self, a, b, col, rounding)
+        if not visible(a.x, a.y, b.x, b.y) then return end
         st.rects[#st.rects + 1] = { x = a.x, y = a.y, w = b.x - a.x, h = b.y - a.y,
                                     kind = 'fill', frame = st.frames, col = col,
                                     rounding = rounding }
         markUsed(a.x, a.y, b.x - a.x, b.y - a.y, 'rectfill x=' .. string.format('%.0f..%.0f', a.x, b.x))
     end
     dl.AddRect = function(self, a, b, col, rounding, flags, thick)
+        if not visible(a.x, a.y, b.x, b.y) then return end
         st.rects[#st.rects + 1] = { x = a.x, y = a.y, w = b.x - a.x, h = b.y - a.y,
                                     kind = 'stroke', frame = st.frames, col = col,
                                     rounding = rounding, thick = thick }
     end
     dl.AddRectFilledMultiColor = function(self, a, b, c1, c2, c3, c4)
+        if not visible(a.x, a.y, b.x, b.y) then return end
         st.rects[#st.rects + 1] = { x = a.x, y = a.y, w = b.x - a.x, h = b.y - a.y,
                                     kind = 'grad', frame = st.frames, col = c1, col2 = c2 }
         markUsed(a.x, a.y, b.x - a.x, b.y - a.y, 'stroke')
     end
     dl.AddLine = function(self, a, b, col, thick)
+        if not visible(math.min(a.x, b.x), math.min(a.y, b.y),
+                        math.max(a.x, b.x), math.max(a.y, b.y)) then return end
         st.rects[#st.rects + 1] = { x = math.min(a.x, b.x), y = math.min(a.y, b.y),
                                     w = math.abs(b.x - a.x), h = math.abs(b.y - a.y),
                                     kind = 'line', frame = st.frames, col = col,
                                     ax = a.x, ay = a.y, bx = b.x, by = b.y, thick = thick }
     end
     dl.AddCircleFilled = function(self, c, r, col, seg)
+        if not visible(c.x - r, c.y - r, c.x + r, c.y + r) then return end
         st.rects[#st.rects + 1] = { x = c.x - r, y = c.y - r, w = r * 2, h = r * 2,
                                     kind = 'circle', frame = st.frames, col = col,
                                     cx = c.x, cy = c.y, r = r }
@@ -560,14 +603,29 @@ local function makeDrawList(kind)
     end
     dl.AddCircle = dl.AddCircleFilled
     dl.PushClipRect = function(self, a, b, intersect)
-        dl._clip = { a.x, a.y, b.x, b.y }
-        dl._clipW = b.x - a.x
+        local rect = { a.x, a.y, b.x, b.y }
+        local top = clipTop()
+        if intersect and top then
+            rect = { math.max(rect[1], top[1]), math.max(rect[2], top[2]),
+                     math.min(rect[3], top[3]), math.min(rect[4], top[4]) }
+        end
+        local s = clipStack()
+        s[#s + 1] = rect
+        dl._clip = rect
+        dl._clipW = rect[3] - rect[1]
     end
-    dl.PopClipRect = function(self) dl._clip = nil; dl._clipW = nil end
+    dl.PopClipRect = function(self)
+        local s = clipStack()
+        s[#s] = nil
+        local top = clipTop()   -- вершина стека ТЕКУЩЕГО региона
+        dl._clip = top
+        dl._clipW = top and (top[3] - top[1]) or nil
+    end
     return dl
 end
 
 local windowDL = makeDrawList('window')
+_G.__windowDL = windowDL
 imgui.GetWindowDrawList = function() return windowDL end
 imgui.GetForegroundDrawList = function() return makeDrawList('fg') end
 imgui.GetBackgroundDrawList = function() return makeDrawList('bg') end
@@ -728,6 +786,7 @@ function mock.reset()
     st.nextSize = nil; st.styleColorN = 0; st.styleVarN = 0
     st.texts = {}; st.rects = {}; st.items = {}; st.errors = {}
     st.childLog = {}
+    if _G.__windowDL then _G.__windowDL._csmap = {} end   -- клипы не текут между кадрами
     st.popupLog = {}; st.popAuto = {}; st.popY = 3000
     st.popupOpen = {}; st.clicks = {}; st.hovers = {}; st.inputs = {}
     st.comboOpen = {}

@@ -1028,8 +1028,11 @@ ok('исходник: значок «‹» не рисуется', full:find("'A
 ok('исходник: команда выгрузки зарегистрирована',
    full:find("sampRegisterChatCommand('sfnlogexport'", 1, true) ~= nil)
 ok('исходник: версии в шапке и внутри совпадают',
-   full:find("script_version('2.2.1')", 1, true) ~= nil
-   and full:find("SFN_VERSION_STR = '2.2.1'", 1, true) ~= nil)
+   full:find("script_version('2.2.2')", 1, true) ~= nil
+   and full:find("SFN_VERSION_STR = '2.2.2'", 1, true) ~= nil)
+ok('исходник: скролл-фикс v2.2.2 на месте (закрепление тела и клип строк)',
+   full:find("NoScrollWithMouse", 1, true) ~= nil
+   and full:find("PushClipRect, dl, V(bx, by - S(1))", 1, true) ~= nil)
 
 -- заголовки разделов окна: string.upper() не знает кириллицу
 eq('titleCase: латиница', titleCase('evolve logs'), 'Evolve logs')
@@ -1110,7 +1113,7 @@ end
 section('v2.2.0: validateScriptText — скачанный файл проверяется до замены')
 -- SFN_VERSION_STR объявлен вне PURE-секции (в ImGui-части), поэтому здесь
 -- версия задаётся явно; её совпадение с исходником проверяется в страховках.
-local CUR = '2.2.1'
+local CUR = '2.2.2'
 ok('текущая версия скрипта совпадает с ожидаемой в тесте',
    full:find("script_version('" .. CUR .. "')", 1, true) ~= nil)
 
@@ -1307,9 +1310,9 @@ ok('исходник: состояние пишется в update.json',
    full:find('saveUpdateState()', 1, true) ~= nil)
 ok('исходник: saveConfig вызывается из настроек окна',
    full:find('saveConfig()', 1, true) ~= nil)
-ok('исходник: версия шапки и литерал совпадают (2.2.1)',
-   full:find("script_version('2.2.1')", 1, true) ~= nil
-   and full:find("SFN_VERSION_STR = '2.2.1'", 1, true) ~= nil)
+ok('исходник: версия шапки и литерал совпадают (2.2.2)',
+   full:find("script_version('2.2.2')", 1, true) ~= nil
+   and full:find("SFN_VERSION_STR = '2.2.2'", 1, true) ~= nil)
 local _, nVerLit = full:gsub("SFN_VERSION_STR%s*=%s*'[%d%.]+'", '')
 eq('исходник: литерал версии ровно один (иначе разъедется)', nVerLit, 1)
 local posTop = full:find("SFN_VERSION_STR = '", 1, true)

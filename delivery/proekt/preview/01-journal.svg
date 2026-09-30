@@ -27,12 +27,12 @@
 <rect x="754.6" y="104.5" width="130.4" height="24.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
 <rect x="890.9" y="104.5" width="243.2" height="24.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
 <line x1="212.0" y1="150.0" x2="1278.3" y2="150.0" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
-<line x1="342.3" y1="130.0" x2="342.3" y2="342.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
-<line x1="472.3" y1="130.0" x2="472.3" y2="342.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
-<line x1="698.1" y1="130.0" x2="698.1" y2="342.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
-<line x1="808.1" y1="130.0" x2="808.1" y2="342.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
-<line x1="986.6" y1="130.0" x2="986.6" y2="342.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
-<line x1="1032.6" y1="130.0" x2="1032.6" y2="342.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="342.3" y1="156.0" x2="342.3" y2="542.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="472.3" y1="156.0" x2="472.3" y2="542.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="698.1" y1="156.0" x2="698.1" y2="542.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="808.1" y1="156.0" x2="808.1" y2="542.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="986.6" y1="156.0" x2="986.6" y2="542.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="1032.6" y1="156.0" x2="1032.6" y2="542.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
 <line x1="1268.8" y1="45.5" x2="1277.8" y2="52.5" stroke="#5b6b77" stroke-opacity="1.000" stroke-width="1.6"/>
 <line x1="1277.8" y1="45.5" x2="1268.8" y2="52.5" stroke="#5b6b77" stroke-opacity="1.000" stroke-width="1.6"/>
 <text x="114.0" y="95.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">SFN Logs</text>
@@ -40,7 +40,7 @@
 <text x="93.2" y="212.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Поиск</text>
 <text x="70.2" y="260.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Настройки</text>
 <text x="71.1" y="308.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">О скрипте</text>
-<text x="60.0" y="521.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v2.2.1</text>
+<text x="60.0" y="521.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v2.2.2</text>
 <text x="60.0" y="539.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">Данные: ок</text>
 <text x="220.0" y="85.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Журнал состава</text>
 <text x="764.1" y="122.0" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">R Обновить</text>
