@@ -18,7 +18,10 @@ doesDirectoryExist   = function() return true end
 createDirectory      = function() return true end
 
 local src = assert(io.open(SRC, 'r')):read('*a')
-local body = src:match('-- >>> PURE LOGIC BEGIN(.-)-- <<< PURE LOGIC END')
+-- Якорь к началу строки и жадный поиск конца: в 2.2.0 строки-метки PURE
+-- встречаются и внутри кода (validateScriptText собирает их из частей), а
+-- ленивый шаблон «.-» обрезал бы секцию на первой же из них.
+local body = src:match('\n%-%- >>> PURE LOGIC BEGIN(.-)\n%-%- <<< PURE LOGIC END\n')
 assert(body, 'метки PURE LOGIC не найдены')
 
 -- Чанк возвращает свои локальные сущности, чтобы тест мог их проверить:
@@ -1024,9 +1027,9 @@ ok('исходник: нет matchPattern/onAccept', full:find('matchPattern', 1
 ok('исходник: значок «‹» не рисуется', full:find("'ANGLE_LEFT'", 1, true) == nil)
 ok('исходник: команда выгрузки зарегистрирована',
    full:find("sampRegisterChatCommand('sfnlogexport'", 1, true) ~= nil)
-ok('исходник: версия 2.1.0',
-   full:find("script_version('2.1.0')", 1, true) ~= nil
-   and full:find("SFN_VERSION_STR = '2.1.0'", 1, true) ~= nil)
+ok('исходник: версии в шапке и внутри совпадают',
+   full:find("script_version('2.2.0')", 1, true) ~= nil
+   and full:find("SFN_VERSION_STR = '2.2.0'", 1, true) ~= nil)
 
 -- заголовки разделов окна: string.upper() не знает кириллицу
 eq('titleCase: латиница', titleCase('evolve logs'), 'Evolve logs')
@@ -1060,6 +1063,266 @@ writeFile(emptyPath, '[main]\r\nshowDismissed = 1\r\n[members]\r\nenabled = 0\r\
 loadConfig()
 eq('  showDismissed из config.ini', cfg.showDismissed, true)
 eq('  members.enabled из config.ini', cfg.members.enabled, false)
+
+-- ============================================ v2.2.0: АВТООБНОВЛЕНИЕ ======
+section('v2.2.0: parseVersion и сравнение версий')
+local v = parseVersion('2.1.0')
+ok('parseVersion разбирает «2.1.0»', v and v[1] == 2 and v[2] == 1 and v[3] == 0)
+eq('parseVersion: мусор -> nil', parseVersion('когда-то'), nil)
+eq('parseVersion: две цифры -> nil', parseVersion('2.1'), nil)
+eq('parseVersion: nil -> nil', parseVersion(nil), nil)
+eq('parseVersion: число -> nil', parseVersion(210), nil)
+eq('parseVersion: бета-хвост -> nil', parseVersion('2.1.0-beta'), nil)
+ok('parseVersion допускает пробелы', parseVersion(' 2.1.0 ') ~= nil)
+
+ok('2.1.1 новее 2.1.0', isNewerVersion('2.1.1', '2.1.0'))
+ok('2.2.0 новее 2.1.9', isNewerVersion('2.2.0', '2.1.9'))
+ok('2.1.10 новее 2.1.9 (не лексикографически)', isNewerVersion('2.1.10', '2.1.9'))
+ok('10.0.0 новее 9.9.9', isNewerVersion('10.0.0', '9.9.9'))
+ok('равные версии - не новее (иначе цикл обновления)', not isNewerVersion('2.1.0', '2.1.0'))
+ok('старая версия - не новее', not isNewerVersion('2.0.13', '2.1.0'))
+ok('мусор вместо новой версии - не новее', not isNewerVersion('abc', '2.1.0'))
+ok('мусор вместо текущей версии - не новее', not isNewerVersion('2.2.0', nil))
+
+section('v2.2.0: extractScriptVersion')
+eq('версия из шапки', extractScriptVersion("script_name('X')\nscript_version('2.3.1')\n"), '2.3.1')
+eq('версия с пробелами в вызове', extractScriptVersion("script_version ( '2.3.1' )"), '2.3.1')
+eq('нет script_version -> nil', extractScriptVersion('local a = 1'), nil)
+eq('nil на входе', extractScriptVersion(nil), nil)
+
+-- «скачанный скрипт»: все маркеры на месте, размер добирается комментариями
+local function fakeScript(ver, padTo)
+    local head = table.concat({
+        "script_name('SFN Logs')",
+        "script_version('" .. ver .. "')",
+        "script_author('San Fierro News')",
+        '-- >>> PURE LOGIC ' .. 'BEGIN',
+        'function membersFeed(text, now) return true end',
+        '-- <<< PURE LOGIC ' .. 'END',
+        'function main() end',
+        "local SFN_VERSION_STR = '" .. ver .. "'",
+    }, '\n')
+    local pad = padTo or (UPDATE_MIN_BYTES + 100)
+    while #head < pad do head = head .. '\n-- x' end
+    return head
+end
+
+section('v2.2.0: validateScriptText — скачанный файл проверяется до замены')
+-- SFN_VERSION_STR объявлен вне PURE-секции (в ImGui-части), поэтому здесь
+-- версия задаётся явно; её совпадение с исходником проверяется в страховках.
+local CUR = '2.2.0'
+ok('текущая версия скрипта совпадает с ожидаемой в тесте',
+   full:find("script_version('" .. CUR .. "')", 1, true) ~= nil)
+
+-- у строк Lua нет :replace(), а gsub трактует шаблон как паттерн, поэтому
+-- literal-замена своя (в «скачанных» файлах подменяются маркеры проверки)
+local function literalReplace(s, from, to)
+    local i = s:find(from, 1, true)
+    if not i then return s end
+    return s:sub(1, i - 1) .. to .. s:sub(i + #from)
+end
+local good = fakeScript('9.9.9')
+eq('годный файл принят', validateScriptText(good, CUR), '9.9.9')
+ok('та же версия отвергнута (защита от цикла)', select(1, validateScriptText(fakeScript(CUR), CUR)) == nil)
+ok('более старая версия отвергнута', select(1, validateScriptText(fakeScript('1.0.0'), CUR)) == nil)
+
+local badName = literalReplace(fakeScript('9.9.9'), "script_name('SFN Logs')", "script_name('Другой')")
+local _, whyName = validateScriptText(badName, CUR)
+ok('чужой script_name отвергнут', whyName ~= nil and whyName:find('script_name', 1, true) ~= nil, whyName)
+
+local noMain = literalReplace(fakeScript('9.9.9'), 'function main() end', '')
+local _, whyMain = validateScriptText(noMain, CUR)
+ok('без main() отвергнут', whyMain ~= nil and whyMain:find('main', 1, true) ~= nil, whyMain)
+
+local noMembers = literalReplace(fakeScript('9.9.9'), 'function membersFeed(text, now) return true end', '')
+local _, whyMembers = validateScriptText(noMembers, CUR)
+ok('без разбора /members отвергнут', whyMembers ~= nil and whyMembers:find('/members', 1, true) ~= nil, whyMembers)
+
+local desync = literalReplace(fakeScript('9.9.9'), "SFN_VERSION_STR = '9.9.9'", "SFN_VERSION_STR = '1.0.0'")
+local _, whyDesync = validateScriptText(desync, CUR)
+ok('рассинхрон версий отвергнут', whyDesync ~= nil and whyDesync:find('рассинхрон', 1, true) ~= nil, whyDesync)
+
+local broken = fakeScript('9.9.9') .. '\nthis is not lua ((( '
+local _, whyBroken = validateScriptText(broken, CUR)
+ok('некомпилируемый файл отвергнут', whyBroken ~= nil and whyBroken:find('компилируется', 1, true) ~= nil, whyBroken)
+
+local _, whyShort = validateScriptText(fakeScript('9.9.9', 1000), CUR)
+ok('обрезанный файл отвергнут', whyShort ~= nil and whyShort:find('короткий', 1, true) ~= nil, whyShort)
+
+eq('пустая строка отвергнута', validateScriptText('', CUR), nil)
+eq('nil отвергнут', validateScriptText(nil, CUR), nil)
+
+section('v2.2.0: состояние обновления (update.json)')
+ok('в PATHS есть update.json', type(PATHS.update) == 'string' and PATHS.update:find('update%.json', 1) ~= nil)
+updateState.lastCheck    = 1234567
+updateState.available    = '9.9.9'
+updateState.ready        = false
+updateState.pendingPath  = ''
+updateState.lastError    = 'сеть молчит'
+updateState.installedAt  = 7654321
+updateState.installedVer = '2.5.0'
+updateState.notified     = '2.5.0'
+ok('saveUpdateState пишет файл', saveUpdateState() ~= false)
+local rawUp = readFile(PATHS.update)
+ok('update.json не пустой', rawUp ~= nil and #rawUp > 10, rawUp and #rawUp)
+updateState.lastCheck, updateState.available, updateState.lastError = 0, '', ''
+loadUpdateState()
+eq('lastCheck пережил перезапись', updateState.lastCheck, 1234567)
+eq('available пережил перезапись', updateState.available, '9.9.9')
+eq('lastError пережил перезапись', updateState.lastError, 'сеть молчит')
+eq('installedVer пережил перезапись', updateState.installedVer, '2.5.0')
+
+-- готовый файл обновления пропал (игрок почистил папку) -> не обещаем установку
+local ghost = TMP .. '/ghost_update.lua'
+writeFile(ghost, fakeScript('9.9.9'))
+updateState.ready, updateState.pendingPath = true, ghost
+saveUpdateState()
+os.remove(ghost)
+loadUpdateState()
+ok('пропавший pending-файл сбрасывает ready', updateState.ready == false)
+eq('  и очищает путь', updateState.pendingPath, '')
+
+section('v2.2.0: needUpdateCheck')
+cfg.update = { enabled = true, auto = true, url = '', every = 6 * 3600 }
+-- ready/lastCheck сбрасываем ДО проверки: секция update.json выше оставляла
+-- состояние «обновление скачано», а с ним повторная проверка не нужна
+updateState.ready = false
+updateState.lastCheck = 0
+-- lastCheck = 0 означает «никогда не проверяли»: проверка нужна сразу,
+-- иначе первый запуск скрипта ждал бы полного интервала (6 часов)
+ok('первая проверка нужна сразу', needUpdateCheck(1000, false))
+ok('force нужен всегда', needUpdateCheck(1000, true))
+updateState.lastCheck = 1000
+ok('сразу после проверки не нужно', not needUpdateCheck(1100, false))
+ok('спустя интервал - нужно', needUpdateCheck(1000 + 6 * 3600 + 1, false))
+ok('force работает и сразу после проверки', needUpdateCheck(1100, true))
+cfg.update.enabled = false
+ok('выключенное обновление не проверяется', not needUpdateCheck(10 ^ 9, false))
+ok('  и force его не включает', not needUpdateCheck(10 ^ 9, true))
+cfg.update.enabled = true
+updateState.ready = true
+ok('со скачанным обновлением повторно не качаем', not needUpdateCheck(10 ^ 9, false))
+ok('  но force позволяет', needUpdateCheck(10 ^ 9, true))
+updateState.ready = false
+updateState.lastCheck = 1000   -- иначе сработает правило «первая проверка сразу»
+cfg.update.every = 5           -- меньше 10 минут не принимаем
+ok('интервал короче 600 с прижимается к 600', needUpdateCheck(1000 + 601, false))
+ok('  а 300 с ещё не срок', not needUpdateCheck(1000 + 300, false))
+
+section('v2.2.0: [update] в config.ini')
+ok('DEFAULT_INI содержит секцию [update]', DEFAULT_INI:find('[update]', 1, true) ~= nil)
+ok('DEFAULT_INI: автообновление включено', DEFAULT_INI:find('enabled = 1', 1, true) ~= nil)
+ok('DEFAULT_INI: источник - raw.githubusercontent',
+   DEFAULT_INI:find('raw%.githubusercontent%.com/Wereskkk/SFN_Logs/main/SFNLogs%.lua', 1) ~= nil)
+local upPath = TMP .. '/update_config.ini'
+writeFile(upPath, table.concat({
+    '[update]', 'enabled = 1', 'auto = 0', 'every = 3600',
+    'url = https://example.invalid/SFNLogs.lua',
+}, '\r\n'))
+PATHS.config = upPath
+loadConfig()
+eq('update.enabled из ini', cfg.update.enabled, true)
+eq('update.auto из ini (0)', cfg.update.auto, false)
+eq('update.every из ini', cfg.update.every, 3600)
+eq('update.url из ini', cfg.update.url, 'https://example.invalid/SFNLogs.lua')
+writeFile(upPath, '[update]\r\nevery = 10\r\nauto = 1\r\n')
+loadConfig()
+eq('every короче 600 прижимается', cfg.update.every, 600)
+eq('update.auto = 1', cfg.update.auto, true)
+eq('пустой url -> адрес по умолчанию', cfg.update.url, UPDATE_URL_DEFAULT)
+writeFile(upPath, '[update]\r\nenabled = 0\r\n')
+loadConfig()
+eq('update.enabled = 0', cfg.update.enabled, false)
+
+section('v2.2.0: saveConfig — настройки окна переживают перезапуск')
+local cfgPath = TMP .. '/save_config.ini'
+writeFile(cfgPath, table.concat({
+    '; пользовательский комментарий обязан уцелеть',
+    '[main]',
+    'hotkey = 0x79',
+    'showDismissed = 0',
+    '',
+    '[members]',
+    'enabled = 1',
+    '',
+    '[update]',
+    'enabled = 1',
+    'auto = 1',
+}, '\r\n'))
+PATHS.config = cfgPath
+cfg.showDismissed = true
+cfg.members.enabled = false
+cfg.update = { enabled = true, auto = false, url = UPDATE_URL_DEFAULT, every = 3600 }
+ok('saveConfig отработал', saveConfig() == true)
+local saved = readFile(cfgPath)
+ok('комментарий пользователя уцелел', saved:find('; пользовательский комментарий обязан уцелеть', 1, true) ~= nil)
+ok('showDismissed записан', saved:find('showDismissed = 1', 1, true) ~= nil)
+ok('members.enabled записан', saved:find('enabled = 0', 1, true) ~= nil)
+ok('[update] auto записан', saved:find('auto = 0', 1, true) ~= nil)
+ok('hotkey не тронут', saved:find('hotkey = 0x79', 1, true) ~= nil)
+ok('перевод строк CRLF сохранён', saved:find('\r\n', 1, true) ~= nil)
+local _, dupCount = saved:gsub('showDismissed', '')
+eq('дублей ключей не появилось', dupCount, 1)
+loadConfig()
+eq('перечитывание вернуло showDismissed', cfg.showDismissed, true)
+eq('перечитывание вернуло members.enabled', cfg.members.enabled, false)
+eq('перечитывание вернуло update.auto', cfg.update.auto, false)
+
+-- старый конфиг без секции [update]: ключи дописываются, секция создаётся
+local oldPath = TMP .. '/old_config.ini'
+writeFile(oldPath, table.concat({ '[main]', 'hotkey = 0x77', 'showDismissed = 0' }, '\r\n'))
+PATHS.config = oldPath
+cfg.showDismissed = true
+cfg.members = { enabled = true }
+cfg.update = { enabled = true, auto = true, url = UPDATE_URL_DEFAULT, every = 21600 }
+ok('saveConfig на старом конфиге отработал', saveConfig() == true)
+local oldSaved = readFile(oldPath)
+ok('в старом конфиге появилась секция [update]', oldSaved:find('[update]', 1, true) ~= nil)
+ok('в старом конфиге появилась секция [members]', oldSaved:find('[members]', 1, true) ~= nil)
+ok('  и enabled в ней', oldSaved:find('enabled = 1', 1, true) ~= nil)
+ok('в [main] дописан недостающий ключ', oldSaved:find('showDismissed = 1', 1, true) ~= nil)
+loadConfig()
+eq('старый конфиг перечитался', cfg.showDismissed, true)
+
+-- идемпотентность: повторная запись ничего не ломает и не растит файл
+local before, after = #readFile(oldPath), nil
+saveConfig()
+after = #readFile(oldPath)
+eq('повторный saveConfig не меняет файл', after, before)
+
+section('v2.2.0: страховки по исходнику')
+ok('исходник: источник обновлений - ветка main',
+   full:find('raw.githubusercontent.com/Wereskkk/SFN_Logs/main/SFNLogs.lua', 1, true) ~= nil)
+ok('исходник: команда /sfnlogupdate зарегистрирована',
+   full:find("sampRegisterChatCommand('sfnlogupdate'", 1, true) ~= nil)
+ok('исходник: обновление проверяется в фоновом потоке',
+   full:find('startUpdateWorker()', 1, true) ~= nil)
+ok('исходник: скачанный файл проверяется перед заменой',
+   full:find('validateScriptText(body, SFN_VERSION_STR)', 1, true) ~= nil)
+ok('исходник: старая версия сохраняется как .bak',
+   full:find("target .. '.bak'", 1, true) ~= nil)
+ok('исходник: замена не на месте (сначала .new)',
+   full:find('update.lua.new', 1, true) ~= nil)
+ok('исходник: состояние пишется в update.json',
+   full:find('saveUpdateState()', 1, true) ~= nil)
+ok('исходник: saveConfig вызывается из настроек окна',
+   full:find('saveConfig()', 1, true) ~= nil)
+ok('исходник: версия шапки и литерал совпадают (2.2.0)',
+   full:find("script_version('2.2.0')", 1, true) ~= nil
+   and full:find("SFN_VERSION_STR = '2.2.0'", 1, true) ~= nil)
+local _, nVerLit = full:gsub("SFN_VERSION_STR%s*=%s*'[%d%.]+'", '')
+eq('исходник: литерал версии ровно один (иначе разъедется)', nVerLit, 1)
+local posTop = full:find("SFN_VERSION_STR = '", 1, true)
+local posUpd = full:find('validateScriptText(body, SFN_VERSION_STR)', 1, true)
+ok('исходник: версия объявлена ДО автообновления (иначе она там nil)',
+   posTop ~= nil and posUpd ~= nil and posTop < posUpd,
+   string.format('%s vs %s', tostring(posTop), tostring(posUpd)))
+eq('исходник: локального SFN_VERSION_STR больше нет',
+   full:find('local SFN_VERSION_STR', 1, true), nil)
+local _, nBegin = full:gsub('\n%-%- >>> PURE LOGIC BEGIN', '')
+local _, nEnd = full:gsub('\n%-%- <<< PURE LOGIC END', '')
+eq('исходник: метка начала PURE одна', nBegin, 1)
+eq('исходник: метка конца PURE одна', nEnd, 1)
 
 -- ============================================================ ИТОГ =======
 print(string.format('\n%d passed, %d failed', passed, failed))

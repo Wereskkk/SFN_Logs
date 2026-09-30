@@ -492,6 +492,242 @@ ok('транспорт здоров', api.state.failStreak == 0, api.state.failS
 cfg.api.transport = 'auto'
 downloadUrlToFile = dlHealthy
 
+-- ================================================== v2.2.0: АВТООБНОВЛЕНИЕ =
+-- Скачивание своей новой версии, проверка файла перед заменой, бэкап и откат.
+-- Всё на временном файле: thisScript() переопределён, чтобы тест ни при каком
+-- исходе не переписал настоящий SFNLogs.lua в репозитории.
+
+section('v2.2.0: автообновление - загрузка, проверка, установка')
+
+local UPD = SFNLogs.update
+local TMPD = '/tmp/sfntest_api'
+local TARGET = TMPD .. '/target_script.lua'
+local BAK = TARGET .. '.bak'
+-- временный файл обновления лежит в рабочей папке скрипта (DIR), а не в корне:
+-- getWorkingDirectory() в этом раннере возвращает TMPD, а DIR = TMPD .. '\\SFNLogs'
+-- путь ровно как DIR в скрипте: getWorkingDirectory() .. '\SFNLogs'
+-- (в Lua-литерале один обратный слэш перед u — это просто «\u», НЕ экранирование)
+local PENDING = TMPD .. [[\SFNLogs\update.lua.new]]
+local OLD_BODY = '-- текущая версия скрипта\n'
+
+-- writeFile/readFile в скрипте локальные (PURE-секция), поэтому здесь свои
+local function writeUpd(path, text)
+    local f = io.open(path, 'wb')
+    if not f then return false end
+    f:write(text); f:close(); return true
+end
+local function readUpd(path)
+    local f = io.open(path, 'rb')
+    if not f then return nil end
+    local s = f:read('*a'); f:close()
+    return (s == '' and nil) or s
+end
+
+os.execute('mkdir -p "' .. TMPD .. '/SFNLogs"')
+thisScript = function() return { filename = TARGET } end
+ok('путь к своему файлу берётся из thisScript()', UPD.path() == TARGET, UPD.path())
+
+local function fakeUpdateScript(ver, padTo)
+    local head = table.concat({
+        "script_name('SFN Logs')",
+        "script_version('" .. ver .. "')",
+        "script_author('San Fierro News')",
+        '-- >>> PURE LOGIC ' .. 'BEGIN',
+        'function membersFeed(text, now) return true end',
+        '-- <<< PURE LOGIC ' .. 'END',
+        'function main() end',
+        "local SFN_VERSION_STR = '" .. ver .. "'",
+    }, '\n')
+    local pad = padTo or (UPDATE_MIN_BYTES + 100)
+    while #head < pad do head = head .. '\n-- x' end
+    return head
+end
+
+-- с 2.2.0 SFN_VERSION_STR глобальный и объявлен в шапке, поэтому виден и здесь
+local CUR_VER = SFN_VERSION_STR
+ok('текущая версия доступна тесту', CUR_VER ~= nil, CUR_VER)
+ok('она же в исходнике объявлена один раз',
+   select(2, io.open('SFNLogs.lua', 'r'):read('*a')
+       :gsub("SFN_VERSION_STR%s*=%s*'[%d%.]+'", '')) == 1)
+
+local GOOD = fakeUpdateScript('9.9.9')
+
+-- gsub трактует строку как Lua-паттерн, а в наших маркерах есть скобки
+-- (группы) и точки (любой символ), поэтому подмена только литеральная
+local function subLiteral(s, from, to)
+    local i = s:find(from, 1, true)
+    if not i then return nil end
+    return s:sub(1, i - 1) .. to .. s:sub(i + #from)
+end
+ok('подмена маркера в тестовом скрипте работает',
+   subLiteral(GOOD, "script_version('9.9.9')", "script_version('9.9.8')")
+       :find("script_version('9.9.8')", 1, true) ~= nil)
+
+local function dlScript(text, finalCode)
+    return function(url, file, cb)
+        later(0.05, function() cb(0, 2) end)
+        later(0.10, function() cb(0, 4) end)
+        later(0.20, function()
+            putFile(file, text)
+            cb(0, finalCode or 58)
+        end)
+        return true
+    end
+end
+
+local function resetUpdateState()
+    local s = UPD.info
+    s.lastCheck, s.available, s.ready = 0, '', false
+    s.pendingPath, s.lastError = '', ''
+    s.installedAt, s.installedVer, s.notified = 0, '', ''
+    os.remove(PENDING); os.remove(TARGET); os.remove(BAK)
+    downloadUrlToFile = dlHealthy      -- сбрасываем и заглушку загрузки
+    cfg.update = { enabled = true, auto = true, url = UPDATE_URL_DEFAULT, every = 21600 }
+end
+
+cfg.update = { enabled = true, auto = true, url = UPDATE_URL_DEFAULT, every = 21600 }
+
+-- 1) удачная проверка: скачали, проверили, поставили, сделали бэкап
+resetUpdateState()
+downloadUrlToFile = dlScript(GOOD)
+writeUpd(TARGET, OLD_BODY)
+local err = UPD.check(true)
+ok('удачная проверка без ошибки', err == nil, err)
+local st = UPD.status()
+ok('доступна версия 9.9.9', st.available == '9.9.9', st.available)
+ok('она же установлена', st.installedVer == '9.9.9', st.installedVer)
+ok('время установки зафиксировано', st.installedAt > 0)
+local body = readUpd(TARGET)
+ok('файл скрипта заменён новой версией',
+   body ~= nil and body:find("script_version('9.9.9')", 1, true) ~= nil)
+local bakBody = readUpd(BAK)
+ok('старая версия сохранена как .bak',
+   bakBody ~= nil and bakBody:find('текущая версия скрипта', 1, true) ~= nil)
+ok('временный файл убран', readUpd(PENDING) == nil)
+ok('ready сброшен после установки', UPD.status().ready == false)
+ok('lastError пуст', UPD.status().lastError == '', UPD.status().lastError)
+
+-- 2) битый файл: целевой скрипт обязан остаться нетронутым
+resetUpdateState()
+writeUpd(TARGET, OLD_BODY)
+downloadUrlToFile = dlScript(GOOD .. '\nthis is not lua ((( ')
+err = UPD.check(true)
+ok('некомпилируемый файл отвергнут',
+   err ~= nil and err:find('компилируется', 1, true) ~= nil, err)
+ok('целевой файл не тронут', readUpd(TARGET) == OLD_BODY)
+ok('бэкап не создавался', readUpd(BAK) == nil)
+ok('ошибка записана в состояние', UPD.status().lastError ~= '')
+ok('счётчик ошибок вырос', UPD.status().errors > 0, UPD.status().errors)
+
+-- 3) обрыв загрузки: тело короче порога
+resetUpdateState()
+writeUpd(TARGET, OLD_BODY)
+downloadUrlToFile = dlScript('-- коротыш', 58)
+err = UPD.check(true)
+ok('обрезанный файл отвергнут', err ~= nil and err:find('оборвалась', 1, true) ~= nil, err)
+ok('целевой файл не тронут', readUpd(TARGET) == OLD_BODY)
+
+-- 4) сеть молчит: ни одного статуса, тела нет
+resetUpdateState()
+downloadUrlToFile = function(url, file, cb) return true end
+err = UPD.check(true)
+ok('тишина сети - это ошибка, а не успех', err ~= nil, err)
+ok('файл скрипта не появился', readUpd(TARGET) == nil)
+
+-- 5) версия не новее: ничего не ставим (иначе цикл обновлений)
+resetUpdateState()
+writeUpd(TARGET, OLD_BODY)
+downloadUrlToFile = dlScript(fakeUpdateScript(CUR_VER))
+err = UPD.check(true)
+ok('та же версия отвергнута', err ~= nil and err:find('не новее', 1, true) ~= nil, err)
+ok('целевой файл не тронут', readUpd(TARGET) == OLD_BODY)
+
+-- 6) автоустановка выключена: скачали и предложили, файл не трогаем
+resetUpdateState()
+writeUpd(TARGET, OLD_BODY)
+cfg.update.auto = false
+downloadUrlToFile = dlScript(GOOD)
+err = UPD.check(true)
+ok('без автоустановки проверка успешна', err == nil, err)
+st = UPD.status()
+ok('обновление скачано и готово', st.ready == true and st.available == '9.9.9')
+ok('но файл НЕ заменён', readUpd(TARGET) == OLD_BODY)
+ok('и бэкапа нет', readUpd(BAK) == nil)
+ok('pending-файл лежит на диске', (readUpd(st.pending) or '') ~= '')
+ok('повторная проверка не нужна', UPD.needCheck(os.time() + 1000000, false) == false)
+local okI, verI = UPD.install()
+ok('принудительная установка ставит версию', okI == true and verI == '9.9.9', verI)
+ok('файл заменён после ручной установки',
+   (readUpd(TARGET) or ''):find("script_version('9.9.9')", 1, true) ~= nil)
+cfg.update.auto = true
+
+-- 7) готовое обновление пережило перезапуск (pending-файл на диске)
+resetUpdateState()
+writeUpd(PENDING, GOOD)
+UPD.info.ready = true
+UPD.info.pendingPath = PENDING
+UPD.info.available = '9.9.9'
+UPD.saveState()
+UPD.info.ready, UPD.info.pendingPath = false, ''
+UPD.loadState()
+ok('ready восстановлен из update.json', UPD.info.ready == true)
+ok('pending-путь восстановлен', UPD.info.pendingPath == PENDING, UPD.info.pendingPath)
+writeUpd(TARGET, '-- старая версия\n')
+local okR, verR = UPD.install()
+ok('установка отложенного обновления', okR == true and verR == '9.9.9', verR)
+ok('бэкап создан', (readUpd(BAK) or ''):find('старая версия', 1, true) ~= nil)
+
+-- 8) рассинхрон версий внутри скачанного файла
+resetUpdateState()
+downloadUrlToFile = dlScript('x')          -- будет переопределена ниже
+local desync = assert(subLiteral(GOOD, "SFN_VERSION_STR = '9.9.9'",
+                                      "SFN_VERSION_STR = '1.0.0'"))
+downloadUrlToFile = dlScript(desync)
+err = UPD.check(true)
+ok('рассинхрон версий отвергнут', err ~= nil and err:find('рассинхрон', 1, true) ~= nil, err)
+
+-- 9) чужой скрипт (script_name не наш)
+resetUpdateState()
+local alien = assert(subLiteral(GOOD, "script_name('SFN Logs')",
+                                     "script_name('Чужой Скрипт')"))
+downloadUrlToFile = dlScript(alien)
+err = UPD.check(true)
+ok('чужой script_name отвергнут', err ~= nil and err:find('script_name', 1, true) ~= nil, err)
+
+-- 10) обновление выключено в конфиге
+resetUpdateState()
+cfg.update.enabled = false
+downloadUrlToFile = dlScript(GOOD)
+err = UPD.check(true)
+ok('выключенное обновление не качается', err ~= nil and err:find('выключено', 1, true) ~= nil, err)
+ok('загрузка не выполнялась', readUpd(TARGET) == nil)
+cfg.update.enabled = true
+
+-- 11) установка без скачанного файла
+resetUpdateState()
+local okN, errN = UPD.install()
+ok('нечего ставить -> nil', okN == nil)
+ok('причина понятная', type(errN) == 'string' and errN:find('нечего ставить', 1, true) ~= nil, errN)
+
+-- 12) вчерашний остаток временного файла не выдаётся за успешную загрузу
+resetUpdateState()                 -- сперва сброс (он же чистит PENDING)
+writeUpd(PENDING, GOOD)            -- потом кладём «вчерашний» файл
+ok('остаток на диске есть', readUpd(PENDING) ~= nil)
+downloadUrlToFile = function(url, file, cb) return true end
+err = UPD.check(true)
+ok('остаток файла не спасает молчащую загрузку', err ~= nil, err)
+ok('остаток удалён', readUpd(PENDING) == nil)
+downloadUrlToFile = dlScript(GOOD)
+
+-- 13) после установки повторная проверка не нужна
+resetUpdateState()
+downloadUrlToFile = dlScript(GOOD)
+UPD.check(true)
+ok('после установки проверка не нужна', UPD.needCheck(os.time(), false) == false)
+
+downloadUrlToFile = dlHealthy
+thisScript = function() return {} end
+
 print(string.format('\n%s: %d passed, %d failed',
                     failed == 0 and 'OK' or 'FAIL', passed, failed))
 if failed > 0 then error('api-тесты провалены') end

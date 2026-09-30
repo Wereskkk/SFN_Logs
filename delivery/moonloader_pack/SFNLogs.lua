@@ -1,6 +1,16 @@
 script_name('SFN Logs')
-script_version('2.1.0')
+script_version('2.2.0')
 script_author('San Fierro News')
+
+-- Версия одна на весь файл и объявлена в самом верху.
+--
+-- Раньше она жила литералом в двух местах: script_version в шапке и локальная
+-- переменная с тем же именем в ImGui-части, на ~2700 строк ниже. Раздел
+-- автообновления вставлен ВЫШЕ того local - Lua резолвит имена лексически,
+-- поэтому SFN_VERSION_STR читался там как глобальный nil, и любая проверка
+-- обновления отвечала «версия не новее текущей nil». Теперь литерал ровно
+-- один, и он обязан совпадать со script_version() (проверяется тестом).
+SFN_VERSION_STR = '2.2.0'
 
 --[[
     Журнал состава San Fierro News.
@@ -15,8 +25,9 @@ script_author('San Fierro News')
     сервер saint-louis. Синхронизации через Google Sheets больше нет.
 
     Файлы (создаются в moonloader\SFNLogs\):
-        config.ini      хоткей, настройки [api] и [members]
+        config.ini      хоткей, настройки [api], [members] и [update]
         roster.json     журнал состава + кеш ответов API
+        update.json     состояние автообновления (последняя проверка, версия)
         export.txt      результат экспорта (/sfnlogexport)
         api_N.json       временные файлы ответов (транспорт downloadUrlToFile)
 
@@ -31,6 +42,7 @@ script_author('San Fierro News')
         /sfnlogexport       выгрузить журнал в export.txt
         /sfnlogadd Ник [КтоПринял]   добавить стажёра с текущей датой
         /sfnlogmembers      отправить /members и перехватить онлайн-состав
+        /sfnlogupdate       автообновление: check / install / url / статус
         /sfnlogapi          статус Evolve Logs API (для диагностики)
         /sfnlogui           диагностика интерфейса (DPI, метрики, ошибки)
 
@@ -48,6 +60,15 @@ script_author('San Fierro News')
     каждый ник в очередь Evolve Logs API. Ответ API проверяется: данные
     получены / «записей нет» (404 NOT_FOUND) — вопрос закрыт, сетевой сбой —
     повтор с растущей паузой (по умолчанию до 3 попыток), затем откат.
+
+    АВТООБНОВЛЕНИЕ (v2.2.0): скрипт сам берёт свежую версию из ветки main
+    репозитория GitHub (raw-адрес, без ключей и без лимита API) и подменяет свой
+    файл. Скачанное обязательно проверяется: компилируется ли текст, тот ли это
+    скрипт (script_name, main(), разбор /members, метки PURE), новее ли версия и
+    не обрезан ли файл; старая версия сохраняется рядом как SFNLogs.lua.bak.
+    Проверка идёт в фоновом lua_thread, кадр игры не блокируется. Настройка -
+    секция [update] в config.ini и раздел «Обновления» в окне, команда
+    /sfnlogupdate. После установки нужен /reload или перезапуск игры.
 
     ИНТЕРФЕЙС (v2.1.0) — собственная дизайн-система «SFN On Air»:
         - размеры окна нет фиксированных: оно пересчитывается каждый кадр под
@@ -100,6 +121,7 @@ local PATHS = {
     roster    = DIR .. '\\roster.json',
     export    = DIR .. '\\export.txt',
     hotkey    = DIR .. '\\hotkey.json',
+    update    = DIR .. '\\update.json',
 }
 
 local function ensureDir()
@@ -756,6 +778,12 @@ cfg = {
     members = {
         enabled = true,             -- перехват вывода /members
     },
+    update = {
+        enabled = true,             -- проверять обновления при запуске игры
+        auto    = true,             -- ставить новую версию сразу, без кнопки
+        url     = UPDATE_URL_DEFAULT,
+        every   = UPDATE_CHECK_EVERY,
+    },
     api = {
         enabled = true,
         ttl     = 600,              -- секунд жизни кеша по сотруднику
@@ -929,6 +957,19 @@ giveUp = 600
 ; Строки разбираются автоматически, ники уходят в очередь Evolve Logs API.
 ; /sfnlogmembers - отправить /members и начать перехват.
 enabled = 1
+
+[update]
+; Автообновление: скрипт сам берёт свежую версию из репозитория на GitHub
+; и подменяет свой файл (старый сохраняется как SFNLogs.lua.bak).
+; Проверка идёт в фоновом потоке, кадр игры не блокируется.
+enabled = 1
+; Ставить обновление сразу (1) или только сообщить о нём в чат (0)
+auto = 1
+; Откуда брать файл. Меняйте, только если скрипт переехал или вы держите
+; свою копию репозитория (например, форк с правками под свою редакцию).
+url = https://raw.githubusercontent.com/Wereskkk/SFN_Logs/main/SFNLogs.lua
+; Как часто спрашивать, секунд (по умолчанию 6 часов, минимум 10 минут)
+every = 21600
 ]]
 
 -- Запись roster.json - батчинг (фикс 2.0.13): раньше файл писался после
@@ -967,6 +1008,109 @@ function rosterSaveInterval(v)
     return ROSTER_SAVE_INTERVAL
 end
 
+-- Запись настроек обратно в config.ini.
+--
+-- До 2.2.0 функции saveConfig не было вовсе: галочки окна («показывать
+-- уволенных», «забирать состав из /members») жили только до перезапуска игры,
+-- а hotkey приходилось держать отдельным hotkey.json. Теперь то, что
+-- переключается в окне, сохраняется сразу.
+--
+-- Файл НЕ перезаписывается целиком: правятся только значения известных ключей
+-- на месте, поэтому пользовательские комментарии и ручные настройки секции
+-- [api] (transport, retries, base, requester) остаются нетронутыми. Ключ,
+-- которого в файле ещё нет, дописывается в конец своей секции; секция [update]
+-- создаётся, если конфиг совсем старый.
+SAVE_CONFIG_KEYS = {
+    main = {
+        showDismissed = function() return cfg.showDismissed and '1' or '0' end,
+    },
+    members = {
+        enabled = function() return (cfg.members and cfg.members.enabled) and '1' or '0' end,
+    },
+    update = {
+        enabled = function() return (cfg.update and cfg.update.enabled) and '1' or '0' end,
+        auto    = function() return (cfg.update and cfg.update.auto ~= false) and '1' or '0' end,
+    },
+}
+
+function saveConfig()
+    local raw = readFile(PATHS.config)
+    if not raw or raw == '' then raw = DEFAULT_INI end
+    -- переводим строки в таблицу; перевод строк определяем по файлу, чтобы не
+    -- менять его формат (старые конфиги созданы в Windows с \r\n)
+    local nl = raw:find('\r\n', 1, true) and '\r\n' or '\n'
+    local lines = {}
+    for line in (raw .. nl):gmatch('(.-)' .. nl) do lines[#lines + 1] = line end
+    if #lines > 0 and lines[#lines] == '' then lines[#lines] = nil end
+
+    local function split(line)
+        local k, v = line:match('^%s*([%w_%.%-]+)%s*=%s*(.-)%s*$')
+        return k, v
+    end
+
+    -- первый проход: меняем существующие значения, запоминаем границы секций
+    local seen = {}                      -- 'sec.key' -> true
+    local bounds, order = {}, {}         -- sec -> { first, last }, порядок секций
+    local cur = nil
+    for i = 1, #lines do
+        local sec = lines[i]:match('^%s*%[%s*([%w_]+)%s*%]')
+        if sec then
+            cur = sec
+            if not bounds[sec] then bounds[sec] = { first = i, last = i }; order[#order + 1] = sec
+            else bounds[sec].last = i end
+        elseif cur then
+            bounds[cur].last = i
+            local key = split(lines[i])
+            if key and SAVE_CONFIG_KEYS[cur] and SAVE_CONFIG_KEYS[cur][key] then
+                local want = SAVE_CONFIG_KEYS[cur][key]()
+                if lines[i] ~= (key .. ' = ' .. want) then
+                    lines[i] = key .. ' = ' .. want
+                end
+                seen[cur .. '.' .. key] = true
+            end
+        end
+    end
+
+    -- второй проход: дописываем недостающие ключи в конец своих секций
+    local addAt = {}                     -- sec -> { 'key = value', ... }
+    for sec, keys in pairs(SAVE_CONFIG_KEYS) do
+        for key, fn in pairs(keys) do
+            if not seen[sec .. '.' .. key] then
+                addAt[sec] = addAt[sec] or {}
+                local list = addAt[sec]
+                list[#list + 1] = key .. ' = ' .. fn()
+            end
+        end
+    end
+    if next(addAt) then
+        local out, shift = {}, 0
+        for i = 1, #lines do
+            out[#out + 1] = lines[i]
+            local sec = lines[i]:match('^%s*%[%s*([%w_]+)%s*%]')
+            if sec and addAt[sec] then
+                -- вставляем сразу после заголовка секции: её конец мог съехать
+                for _, l in ipairs(addAt[sec]) do out[#out + 1] = l end
+                addAt[sec] = nil
+            end
+        end
+        -- старых конфигов может не хватать целых секций ([members] появился
+        -- в 2.0.9, [update] - в 2.2.0): дописываем их в конец файла
+        for _, sec in ipairs({ 'main', 'members', 'update' }) do
+            if addAt[sec] then
+                out[#out + 1] = ''
+                out[#out + 1] = '[' .. sec .. ']'
+                out[#out + 1] = '; добавлено скриптом при сохранении настроек'
+                for _, l in ipairs(addAt[sec]) do out[#out + 1] = l end
+            end
+        end
+        lines = out
+    end
+
+    local text = table.concat(lines, nl) .. nl
+    if not writeFile(PATHS.config, text) then return false end
+    return true
+end
+
 function loadConfig()
     local ini = loadIni(PATHS.config)
     if not next(ini) then
@@ -1002,6 +1146,14 @@ function loadConfig()
     local mm = ini.members or {}
     cfg.members = cfg.members or {}
     cfg.members.enabled = flag(mm.enabled, true)
+
+    local up = ini.update or {}
+    cfg.update = cfg.update or {}
+    cfg.update.enabled = flag(up.enabled, true)
+    cfg.update.auto    = flag(up.auto, true)
+    cfg.update.url     = trim(up.url or '')
+    if cfg.update.url == '' then cfg.update.url = UPDATE_URL_DEFAULT end
+    cfg.update.every   = math.max(600, tonumber(up.every) or UPDATE_CHECK_EVERY)
 
     loadHotkey()   -- выбор из настроек (hotkey.json) важнее config.ini
 end
@@ -1402,6 +1554,165 @@ function exportText()
     -- BOM, чтобы Блокнот и Excel открывали файл именно как UTF-8
     writeFile(PATHS.export, string.char(0xEF, 0xBB, 0xBF) .. body)
     return PATHS.export, n
+end
+
+-- ==================================================== АВТООБНОВЛЕНИЕ =======
+--
+-- Скрипт обновляет сам себя: берёт SFNLogs.lua из ветки main репозитория
+-- GitHub по HTTPS (raw-адрес, без ключей и без лимита API), сравнивает версию
+-- и, если она новее, проверяет скачанное и подменяет свой файл.
+--
+-- Пользователю больше не нужно ничего скачивать руками: достаточно перезапустить
+-- игру или один раз ввести /reload.
+--
+-- Безопасность замены (важно: скрипт перезаписывает сам себя, испорченный файл
+-- означает «MoonLoader больше не загрузит ничего»):
+--   1. скачанный текст ОБЯЗАН компилироваться - load()/loadstring() без ошибки;
+--   2. в нём должны быть script_name('SFN Logs'), function main(), разбор
+--      /members и обе метки PURE LOGIC - иначе это не наш скрипт (например,
+--      страница ошибки прокси или обрезанная загрузка);
+--   3. версия в нём обязана быть строго новее текущей, а script_version()
+--      в шапке и SFN_VERSION_STR внутри - совпадать: рассинхрон означает, что
+--      файл собрали неправильно, и скрипт зациклился бы на обновлении;
+--   4. размер не меньше UPDATE_MIN_BYTES (защита от обрезанного ответа);
+--   5. старый файл сохраняется рядом как SFNLogs.lua.bak - откат одной
+--      командой: удалить новый файл и переименовать .bak.
+--
+-- Файл подменяется НЕ на месте: сначала пишется SFNLogs\update.lua.new, и
+-- только после всех проверок он переносится поверх рабочего файла.
+
+UPDATE_URL_DEFAULT = 'https://raw.githubusercontent.com/Wereskkk/SFN_Logs/main/SFNLogs.lua'
+UPDATE_MIN_BYTES   = 60000      -- текущий скрипт ~200 КБ: меньшее - обрезок
+UPDATE_CHECK_EVERY = 6 * 3600   -- как часто спрашивать GitHub, секунд
+
+updateState = {
+    lastCheck    = 0,      -- unix-время последней проверки
+    available    = '',     -- какая версия лежит в репозитории
+    ready        = false,  -- скачано, проверено и сохранено - можно ставить
+    pendingPath  = '',     -- где лежит проверенный новый файл
+    lastError    = '',     -- текст последней неудачи (для настроек и /sfnlogupdate)
+    installedAt  = 0,      -- когда была поставлена новая версия
+    installedVer = '',     -- какая версия поставлена
+    notified     = '',     -- о какой версии уже сообщили в чат (без повторов)
+}
+
+-- «2.1.0» -> { 2, 1, 0 }. Не числа и хвост вроде «2.1.0-beta» дают nil:
+-- сравнивать строками нельзя («2.1.10» < «2.1.9» лексикографически).
+function parseVersion(s)
+    if type(s) ~= 'string' then return nil end
+    local a, b, c = s:match('^%s*(%d+)%.(%d+)%.(%d+)%s*$')
+    if not a then return nil end
+    return { tonumber(a), tonumber(b), tonumber(c) }
+end
+
+-- a строго новее b. Одинаковые версии - не новее: иначе скрипт скачивал бы сам
+-- себя бесконечно.
+function isNewerVersion(a, b)
+    local va, vb = parseVersion(a), parseVersion(b)
+    if not va or not vb then return false end
+    for i = 1, 3 do
+        if va[i] ~= vb[i] then return va[i] > vb[i] end
+    end
+    return false
+end
+
+-- Версия из текста скрипта: script_version('X.Y.Z') в шапке.
+function extractScriptVersion(text)
+    if type(text) ~= 'string' then return nil end
+    return text:match("script_version%s*%(%s*'([%d%.]+)'%s*%)")
+end
+
+-- Проверка скачанного текста. Возвращает версию (строка) или nil + причину.
+-- Причина показывается пользователю, поэтому формулировки человеческие.
+function validateScriptText(text, currentVersion)
+    if type(text) ~= 'string' then return nil, 'пустой ответ' end
+    local n = #text
+    if n < UPDATE_MIN_BYTES then
+        return nil, string.format('файл слишком короткий: %d байт (нужно не меньше %d) - загрузка оборвалась',
+                                  n, UPDATE_MIN_BYTES)
+    end
+    local loader = loadstring or load
+    if type(loader) ~= 'function' then return nil, 'нечем проверить синтаксис' end
+    local chunk, serr = loader(text, 'update-check')
+    if not chunk then
+        return nil, 'файл не компилируется: ' .. tostring(serr):sub(1, 120)
+    end
+    if not text:find("script_name('SFN Logs')", 1, true) then
+        return nil, 'это не SFN Logs: в файле нет script_name'
+    end
+    local ver = extractScriptVersion(text)
+    if not ver then return nil, 'в файле не нашлось script_version' end
+    if not parseVersion(ver) then
+        return nil, 'версия в файле не разбирается: ' .. tostring(ver)
+    end
+    if not isNewerVersion(ver, currentVersion) then
+        return nil, 'версия ' .. ver .. ' не новее текущей ' .. tostring(currentVersion)
+    end
+    -- критические куски: без них файл формально наш, но работать не будет.
+    -- Метки PURE-секции СОБИРАЕМ ИЗ ЧАСТЕЙ: записанные в этом файле буквально,
+    -- они обрывали бы извлечение PURE-секции в test_logic.lua (шаблон «.-»
+    -- ленивый и заканчивал секцию на первой же встреченной метке).
+    local markBegin = '-- >>> PURE LOGIC ' .. 'BEGIN'
+    local markEnd   = '-- <<< PURE LOGIC ' .. 'END'
+    for _, probe in ipairs({ { 'function main()', 'нет точки входа main()' },
+                             { 'membersFeed(', 'нет разбора /members' },
+                             { markBegin, 'нет PURE-секции' },
+                             { markEnd, 'PURE-секция не закрыта' } }) do
+        if not text:find(probe[1], 1, true) then return nil, probe[2] end
+    end
+    -- шапка и внутренний строковый литерал версии обязаны совпадать
+    local inner = text:match("SFN_VERSION_STR%s*=%s*'([%d%.]+)'")
+    if inner and inner ~= ver then
+        return nil, 'рассинхрон версий в файле: script_version ' .. ver
+            .. ', SFN_VERSION_STR ' .. inner
+    end
+    return ver
+end
+
+-- Состояние обновления живёт в update.json рядом с roster.json: проверка не
+-- дёргает GitHub при каждом запуске игры, а готовая к установке версия не
+-- теряется, если игру закрыли до /reload.
+function loadUpdateState()
+    local raw = readFile(PATHS.update)
+    if raw and raw ~= '' then
+        local d = json.decode(raw)
+        if type(d) == 'table' then
+            updateState.lastCheck    = tonumber(d.lastCheck) or 0
+            updateState.available    = tostring(d.available or '')
+            updateState.ready        = d.ready == true
+            updateState.pendingPath  = tostring(d.pendingPath or '')
+            updateState.lastError    = tostring(d.lastError or '')
+            updateState.installedAt  = tonumber(d.installedAt) or 0
+            updateState.installedVer = tostring(d.installedVer or '')
+            updateState.notified     = tostring(d.notified or '')
+            -- готовый файл мог быть удалён руками - не обещаем того, чего нет
+            if updateState.ready and updateState.pendingPath ~= '' then
+                local body = readFile(updateState.pendingPath)
+                if not body or body == '' then
+                    updateState.ready, updateState.pendingPath = false, ''
+                end
+            end
+        end
+    end
+    return updateState
+end
+
+function saveUpdateState()
+    return writeFile(PATHS.update, json.encode(updateState))
+end
+
+-- Пора ли спрашивать GitHub. force - всегда да (кнопка «Проверить обновления»).
+function needUpdateCheck(now, force)
+    if not cfg.update or not cfg.update.enabled then return false end
+    if force then return true end
+    if updateState.ready then return false end      -- уже скачано, ждём установки
+    local last = updateState.lastCheck or 0
+    -- ни одной проверки ещё не было (первый запуск, удалён update.json) -
+    -- проверяем сразу, не дожидаясь истечения интервала
+    if last <= 0 then return true end
+    local every = tonumber(cfg.update and cfg.update.every) or UPDATE_CHECK_EVERY
+    if every < 600 then every = 600 end             -- чаще раза в 10 минут не дёргаем GitHub
+    return (now - last) >= every
 end
 
 -- <<< PURE LOGIC END
@@ -2189,6 +2500,272 @@ SFNLogs.api = {
     dueNick      = nextDueNick,
 }
 
+-- ============================================== АВТООБНОВЛЕНИЕ (сеть) =====
+--
+-- Загрузка и установка живут вне PURE-секции: здесь downloadUrlToFile,
+-- файловая система и lua_thread. Всё делается в фоновом потоке, поэтому кадр
+-- игры не блокируется даже на запасном транспорте requests.
+
+local update = {
+    busy    = false,      -- идёт проверка/загрузка
+    checked = 0,          -- сколько проверок сделано за сессию
+    errors  = 0,          -- сколько из них закончились ошибкой
+    lastAt  = 0,          -- когда последняя проверка завершилась
+}
+
+-- Путь к собственному файлу скрипта. MoonLoader даёт его через
+-- thisScript().filename; если поля нет (старая сборка/тесты) - ищем SFNLogs.lua
+-- в корне moonloader. Отдельный файл не пишем: путь нужен только для замены.
+local function updateScriptPath()
+    local ok, scr = pcall(thisScript)
+    if ok and type(scr) == 'table' then
+        local f = scr.filename
+        if type(f) == 'string' and f ~= '' then return f end
+    end
+    local wd = (getWorkingDirectory and getWorkingDirectory()) or '.'
+    return wd .. '\\SFNLogs.lua'
+end
+
+local function updateUrl()
+    local u = cfg.update and cfg.update.url
+    if type(u) == 'string' and u ~= '' then return u end
+    return UPDATE_URL_DEFAULT
+end
+
+-- Скачать обновление. Возвращает текст файла или nil + причину.
+-- Транспорт тот же, что у API: фоновый downloadUrlToFile, запасной -
+-- блокирующий requests (в фоновом потоке он безопасен).
+--
+-- Готовность ответа определяется и по финальному статусу (6/58), и по телу на
+-- диске - ровно как в API-слое (фикс 2.0.13): словарь статусов download_status
+-- отличается от сборки к сборке, а текст скрипта узнаваем всегда.
+--
+-- ВАЖНО: временный файл НЕ удаляется здесь. Его путь попадает в
+-- updateState.pendingPath, а читает и убирает его только установка - иначе
+-- отложенная установка (обновление скачано в прошлой сессии, игрок ставит его
+-- после перезапуска) не находила файл. На старте загрузки вчерашний остаток,
+-- наоборот, стирается: без этого молчащая загрузка выглядела бы успешной.
+local function updateDownload(url, tmp)
+    if type(downloadUrlToFile) == 'function' then
+        local state, fired, tick, count = 'wait', false, 0, 0
+        local ok = pcall(downloadUrlToFile, url, tmp, function(st)
+            fired = true; count = count + 1
+            if DL_DONE[st] then state = 'done' end
+        end)
+        if not ok then return nil, 'downloadUrlToFile отказал' end
+        local function ready()
+            local body = readFile(tmp)
+            if body and #body >= UPDATE_MIN_BYTES
+               and body:find('script_version(', 1, true) then
+                return body
+            end
+            return nil
+        end
+        local tries = 0
+        while state == 'wait' and tries < 150 do
+            if not pcall(wait, 100) then return nil, 'ожидание вне потока' end
+            tries = tries + 1
+            if fired then fired = false; tick = tries end
+            if count > 0 and ready() then state = 'done'; break end
+            if (tries - tick) > (count == 0 and 100 or 60) then
+                break       -- сеть молчит: проверим, не записалось ли тело
+            end
+        end
+        local body = ready()
+        if body then return body end
+        -- тело могло записаться частично (обрыв соединения) или оказаться
+        -- страницей ошибки: говорим конкретно, что именно не так
+        local got = readFile(tmp)
+        if got and got ~= '' then
+            if #got < UPDATE_MIN_BYTES then
+                return nil, string.format(
+                    'загрузка оборвалась: получено %d байт из нужных %d',
+                    #got, UPDATE_MIN_BYTES)
+            end
+            return nil, 'скачанный файл не похож на скрипт (нет script_version)'
+        end
+        return nil, string.format('файл не скачался (статусов: %d, ждали %d с)',
+                                  count, math.floor(tries / 10))
+    end
+    if okRequests and requests then
+        local ok, res = pcall(requests.get, url, { timeout = 15 })
+        if not ok or not res then return nil, 'запрос не прошёл: ' .. tostring(res) end
+        if res.status_code ~= 200 then
+            return nil, 'HTTP ' .. tostring(res.status_code)
+        end
+        local text = res.text or ''
+        -- запасной транспорт отдаёт тело строкой: кладём его во временный файл,
+        -- чтобы путь установки был одинаковым для обоих транспортов
+        if writeFile(tmp, text) then return text end
+        return nil, 'не удалось сохранить скачанный файл'
+    end
+    return nil, 'нет транспорта для загрузки'
+end
+
+-- Одна проверка: скачать, проверить, решить (поставить сразу или предложить).
+-- Возвращает nil при успехе (сообщение в чат уже отправлено) или текст ошибки.
+local updateInstall
+
+local function updateCheck(force)
+    if update.busy then return 'проверка уже идёт' end
+    if not cfg.update or not cfg.update.enabled then
+        return 'автообновление выключено (config.ini, [update] enabled = 1)'
+    end
+    update.busy = true
+    update.checked = update.checked + 1
+    local url = updateUrl()
+    local tmp = DIR .. '\\update.lua.new'
+    os.remove(tmp)                       -- вчерашний остаток не должен «выстрелить»
+    local body, why = updateDownload(url, tmp)
+    update.lastAt = os.time()
+    updateState.lastCheck = update.lastAt
+    if not body then
+        os.remove(tmp)
+        update.errors = update.errors + 1
+        updateState.lastError = tostring(why)
+        saveUpdateState()
+        update.busy = false
+        return updateState.lastError
+    end
+    local ver, verr = validateScriptText(body, SFN_VERSION_STR)
+    if not ver then
+        os.remove(tmp)
+        update.errors = update.errors + 1
+        updateState.lastError = tostring(verr)
+        updateState.available, updateState.ready = '', false
+        saveUpdateState()
+        update.busy = false
+        return updateState.lastError
+    end
+    -- файл скачан и прошёл все проверки: его можно ставить
+    updateState.available   = ver
+    updateState.ready       = true
+    updateState.pendingPath = tmp
+    updateState.lastError   = ''
+    saveUpdateState()
+    update.busy = false
+
+    local auto = cfg.update.auto ~= false
+    if not auto then
+        if updateState.notified ~= ver then
+            updateState.notified = ver
+            saveUpdateState()
+            pcall(say, string.format(
+                '{66FF66}[SFN Logs] есть обновление %s -> %s. Поставить: «Настройки» -> «ПОСТАВИТЬ ОБНОВЛЕНИЕ» или /sfnlogupdate install',
+                SFN_VERSION_STR, ver))
+        end
+        return nil
+    end
+    local ok, err = updateInstall()
+    if not ok then return err end
+    return nil
+end
+
+-- Установка: бэкап текущего файла -> проверка, что бэкап реально записался ->
+-- перенос нового файла на его место. Возвращает true или nil + причину.
+-- реализация присваивается forward-объявленному updateInstall ниже
+local function updateDoInstall()
+    if not updateState.ready or updateState.pendingPath == '' then
+        return nil, 'нечего ставить: сначала проверьте обновления'
+    end
+    local body = readFile(updateState.pendingPath)
+    if not body or body == '' then
+        updateState.ready, updateState.pendingPath = false, ''
+        saveUpdateState()
+        return nil, 'файл обновления пропал - проверьте ещё раз'
+    end
+    -- проверяем второй раз: файл мог лежать на диске с прошлой сессии, а
+    -- текущая версия за это время уже догнать его
+    local ver, verr = validateScriptText(body, SFN_VERSION_STR)
+    if not ver then
+        os.remove(updateState.pendingPath)
+        updateState.ready, updateState.pendingPath = false, ''
+        updateState.lastError = tostring(verr)
+        saveUpdateState()
+        return nil, verr
+    end
+    local target = updateScriptPath()
+    local bak = target .. '.bak'
+    local cur = readFile(target)
+    if cur and cur ~= '' then
+        if not writeFile(bak, cur) then
+            return nil, 'не удалось сохранить резервную копию ' .. bak
+        end
+        local back = readFile(bak)
+        if not back or #back ~= #cur then
+            return nil, 'резервная копия не записалась - замена отменена'
+        end
+    end
+    if not writeFile(target, body) then
+        return nil, 'не удалось записать ' .. target
+            .. ' (файл занят или нет прав на запись)'
+    end
+    local written = readFile(target)
+    if not written or #written ~= #body then
+        -- откатываемся: без этого пользователь остался бы с обрезанным скриптом
+        if cur and cur ~= '' then pcall(writeFile, target, cur) end
+        return nil, 'файл записался не полностью - возвращена старая версия'
+    end
+    os.remove(updateState.pendingPath)
+    updateState.ready, updateState.pendingPath = false, ''
+    updateState.installedAt, updateState.installedVer = os.time(), ver
+    updateState.notified = ver
+    saveUpdateState()
+    return true, ver
+end
+
+-- связываем forward-объявление с реализацией
+updateInstall = updateDoInstall
+
+-- Фоновый поток проверки обновлений. Пауза в 20 с на старте: пусть сначала
+-- отработает API-воркер (он тоже греет WinINET/DNS/TLS) и прогрузится игра.
+local function startUpdateWorker()
+    if not lua_thread then return end
+    lua_thread.create(function()
+        pcall(wait, 20000)
+        while true do
+            if needUpdateCheck(os.time(), false) and not update.busy then
+                local err = updateCheck(false)
+                if err then pcall(logEvent, 'обновление: ' .. tostring(err)) end
+            end
+            pcall(wait, 60000)
+        end
+    end)
+end
+
+-- Публичный доступ: кнопки настроек, /sfnlogupdate и тесты.
+SFNLogs.update = {
+    state      = update,
+    info       = updateState,
+    url        = updateUrl,
+    path       = updateScriptPath,
+    check      = updateCheck,
+    install    = updateDoInstall,
+    needCheck  = needUpdateCheck,
+    validate   = validateScriptText,
+    loadState  = loadUpdateState,
+    saveState  = saveUpdateState,
+    status     = function()
+        return {
+            enabled = (cfg.update and cfg.update.enabled) and true or false,
+            auto    = (cfg.update and cfg.update.auto ~= false),
+            url     = updateUrl(),
+            current = SFN_VERSION_STR,
+            available = updateState.available,
+            ready   = updateState.ready and true or false,
+            pending = updateState.pendingPath,
+            lastCheck = updateState.lastCheck,
+            lastError = updateState.lastError,
+            installedAt = updateState.installedAt,
+            installedVer = updateState.installedVer,
+            busy    = update.busy,
+            checked = update.checked,
+            errors  = update.errors,
+            target  = updateScriptPath(),
+        }
+    end,
+}
+
 -- ===================================================== ImGui ОКНО ========
 --
 -- Оформление — визуальный язык Evolve Logs (скриншот v1.0.0 и исходники
@@ -2209,8 +2786,6 @@ SFNLogs.api = {
 -- окно деградирует до текстового вида и пишет об этом в чат, а не падает.
 
 local win = imgui.new.bool(false)
-
-local SFN_VERSION_STR = '2.1.0'
 
 -- ---------------------------------------------------------- палитра -------
 -- Значения взяты из modules/ui.lua их проекта (DarkTheme + drawSideMenu).
@@ -2475,6 +3050,8 @@ local bufRank   = imgui.new.int(1)
 local bufReason = imgui.new.char[128]()
 local refShowDismissed = imgui.new.bool(false)
 local refMembersEnabled = imgui.new.bool(true)
+local refAutoUpdate = imgui.new.bool(true)      -- v2.2.0: проверять обновления
+local refAutoInstall = imgui.new.bool(true)     -- v2.2.0: ставить сразу
 
 local function readBuf(b, n)
     local t = {}
@@ -3123,11 +3700,59 @@ local function settingsRows()
         say(string.format('{66FF66}[SFN Logs] выгружено %d записей -> %s', n, path))
     end)
 
+    add('section', 'обновления')
+    local us = SFNLogs.update.status()
+    add('checkbox', 'Проверять обновления автоматически', refAutoUpdate, function()
+        cfg.update.enabled = refAutoUpdate[0]
+        saveConfig()
+    end)
+    add('checkbox', 'Ставить новую версию сразу', refAutoInstall, function()
+        cfg.update.auto = refAutoInstall[0]
+        saveConfig()
+    end)
+    add('hint', '   скрипт сам берёт свежую версию из репозитория и подменяет свой файл;')
+    add('hint', '   старая версия сохраняется рядом как SFNLogs.lua.bak')
+    if us.ready and us.available ~= '' then
+        add('kv', 'доступна версия', us.available, C.ready)
+        add('button', I('DOWNLOAD', '') .. ' ПОСТАВИТЬ ОБНОВЛЕНИЕ', C.accent, function()
+            local ok, err = SFNLogs.update.install()
+            if ok then
+                say(string.format('{66FF66}[SFN Logs] установлена версия %s. Введите /reload или перезапустите игру',
+                    tostring(err)))
+            else
+                say('{FF4444}[SFN Logs] ' .. tostring(err))
+            end
+        end)
+    elseif us.busy then
+        add('kv', 'проверка', 'идёт...', C.soon)
+    else
+        add('kv', 'обновлений', 'нет', C.textDim)
+    end
+    add('kv', 'последняя проверка',
+        us.lastCheck > 0 and fmtDateTime(us.lastCheck) or 'ещё не проверяли',
+        us.lastCheck > 0 and C.textDim or C.textFaint)
+    if us.lastError ~= '' then
+        add('hint', '   не получилось: ' .. us.lastError)
+    end
+    add('button', I('ROTATE', '') .. ' ПРОВЕРИТЬ ОБНОВЛЕНИЯ', C.text, function()
+        if not lua_thread then
+            say('{FF4444}[SFN Logs] lua_thread недоступен - обновление нельзя проверить')
+            return
+        end
+        say('{AAAAAA}[SFN Logs] проверяю обновления...')
+        lua_thread.create(function()
+            local err = updateCheck(true)
+            if err then say('{FF4444}[SFN Logs] обновление: ' .. tostring(err)) end
+        end)
+    end)
+
     add('section', 'служебное')
     add('hint', '   файл настроек: ' .. PATHS.config)
     add('button', 'ПЕРЕЧИТАТЬ config.ini', C.textDim, function()
         loadConfig(); refShowDismissed[0] = cfg.showDismissed
         refMembersEnabled[0] = cfg.members.enabled
+        refAutoUpdate[0] = cfg.update.enabled
+        refAutoInstall[0] = cfg.update.auto ~= false
         say('{66FF66}[SFN Logs] конфигурация перечитана')
     end)
     return model
@@ -3243,6 +3868,12 @@ local function drawAboutBody(w, h)
         { '    «Поиск» -> «+ В состав»: любой игрок по нику, в том числе не в игре.', C.textDim },
         { '    /sfnlogadd Ник [КтоПринял]: добавить стажёра вручную.', C.textDim },
         { '', C.text },
+        { 'Обновления', C.text },
+        { '    Скрипт обновляет себя сам: раз в несколько часов смотрит, не появилась', C.textDim },
+        { '    ли в репозитории версия новее, и ставит её. Старый файл сохраняется', C.textDim },
+        { '    рядом как SFNLogs.lua.bak. После установки нужно ввести /reload или', C.textDim },
+        { '    перезапустить игру. Отключается в «Настройках».', C.textDim },
+        { '', C.text },
         { 'Откуда берутся ранги и даты', C.text },
         { '    Из официального журнала Evolve Role Play (' .. cfg.api.base .. ').', C.textDim },
         { '    Скрипт обновляет данные сам, в фоне, и не мешает игре.', C.textDim },
@@ -3252,6 +3883,7 @@ local function drawAboutBody(w, h)
         { '    /sfnlogmembers - запросить онлайн-состав у сервера', C.textDim },
         { '    /sfnlogadd Ник [КтоПринял] - добавить стажёра', C.textDim },
         { '    /sfnlogsave - сохранить журнал    /sfnlogexport - выгрузить в файл', C.textDim },
+        { '    /sfnlogupdate - проверить и поставить обновление', C.textDim },
         { '    /sfnlogapi и /sfnlogui - диагностика (нужна только при неполадках)', C.textFaint },
         { '', C.text },
         { 'Оформление — визуальный язык Evolve Logs (Mary_Norton), воспроизведено', C.textFaint },
@@ -4026,6 +4658,52 @@ local function registerCommands()
     sampRegisterChatCommand('sfnlogmembers', function()
         sendMembersCommand()
     end)
+    -- v2.2.0: автообновление. Без аргумента - статус, check - проверить,
+    -- install - поставить скачанное, url - показать, откуда берётся файл.
+    sampRegisterChatCommand('sfnlogupdate', function(param)
+        local st = SFNLogs.update.status()
+        local arg = tostring(param or ''):lower():match('^%s*(%S*)')
+        if arg == 'check' then
+            if not lua_thread then
+                say('{FF4444}[SFN Logs] lua_thread недоступен - обновление нельзя проверить')
+                return
+            end
+            say('{AAAAAA}[SFN Logs] проверяю обновления...')
+            lua_thread.create(function()
+                local err = updateCheck(true)
+                if err then say('{FF4444}[SFN Logs] обновление: ' .. tostring(err)) end
+            end)
+            return
+        end
+        if arg == 'install' then
+            local ok, err = updateDoInstall()
+            if ok then
+                say(string.format('{66FF66}[SFN Logs] установлена версия %s. Введите /reload или перезапустите игру', tostring(err)))
+            else
+                say('{FF4444}[SFN Logs] ' .. tostring(err))
+            end
+            return
+        end
+        if arg == 'url' then
+            say('{AAAAAA}[SFN Logs] источник обновлений: ' .. st.url)
+            say('{AAAAAA}[SFN Logs] заменяемый файл: ' .. st.target)
+            return
+        end
+        say(string.format('{66FF66}[SFN Logs] версия %s%s', st.current,
+            st.ready and (' -> доступна ' .. st.available) or ''))
+        if st.busy then
+            say('{AAAAAA}[SFN Logs] сейчас идёт проверка обновлений')
+        elseif st.ready then
+            say('{AAAAAA}[SFN Logs] новая версия скачана и проверена: /sfnlogupdate install')
+        elseif st.lastCheck > 0 then
+            say('{AAAAAA}[SFN Logs] последняя проверка: ' .. fmtDateTime(st.lastCheck)
+                .. (st.lastError ~= '' and (' | ошибка: ' .. st.lastError) or ' | обновлений нет'))
+        else
+            say('{AAAAAA}[SFN Logs] обновлений ещё не проверяли: /sfnlogupdate check')
+        end
+        say(string.format('{AAAAAA}[SFN Logs] автообновление: %s, ставить сразу: %s, проверок за сессию: %d (ошибок %d)',
+            st.enabled and 'вкл' or 'выкл', st.auto and 'да' or 'нет', st.checked, st.errors))
+    end)
     sampRegisterChatCommand('sfnlogadd', function(param)
         -- аргументы команд приходят из чата в CP1251
         local nick, by = cp1251ToUtf8(tostring(param or '')):match('^(%S+)%s*(%S*)')
@@ -4052,9 +4730,12 @@ function main()
     end
     loadConfig()
     loadRoster()
+    loadUpdateState()
     resetAddForm()
     refShowDismissed[0] = cfg.showDismissed
     refMembersEnabled[0] = cfg.members and cfg.members.enabled or true
+    refAutoUpdate[0] = cfg.update and cfg.update.enabled or true
+    refAutoInstall[0] = cfg.update and cfg.update.auto ~= false
     registerCommands()
 
     -- свой ник нужен для requester и updatedBy: два способа под pcall,
@@ -4064,6 +4745,7 @@ function main()
     wait(1000)
     refreshOnline()
     startApiWorker()
+    startUpdateWorker()
 
     local lastOnline, lastNick = os.time(), os.time()
     say(string.format('{66FF66}[SFN Logs] v%s загружен. /sfnlog - окно, /sfnlogmembers - состав из игры', SFN_VERSION_STR))
@@ -4077,6 +4759,23 @@ function main()
     end
     if not sampev then
         say('{FFAA00}[SFN Logs] нет samp.events - состав из /members не перехватывается, добавляйте сотрудников вручную')
+    end
+    if cfg.update and cfg.update.enabled then
+        -- сообщаем только если обновление уже скачано и ждёт установки:
+        -- обычная проверка идёт молча в фоне и напишет сама, когда найдёт
+        if updateState.ready and updateState.available ~= '' then
+            say(string.format('{66FF66}[SFN Logs] скачана версия %s - ставлю (старый файл сохраню как .bak)',
+                updateState.available))
+            local ok, err = updateDoInstall()
+            if ok then
+                say(string.format('{66FF66}[SFN Logs] установлена версия %s: введите /reload или перезапустите игру',
+                    tostring(err)))
+            else
+                say('{FF4444}[SFN Logs] не удалось поставить обновление: ' .. tostring(err))
+            end
+        end
+    else
+        say('{FFAA00}[SFN Logs] автообновление выключено в config.ini [update]')
     end
 
     while true do
@@ -4107,5 +4806,6 @@ SFNLogs.registerCommands = registerCommands
 
 function onScriptTerminate(scr)
     if scr ~= thisScript() then return end
-    pcall(saveRoster, true)   -- принудительная запись перед выгрузкой
+    pcall(saveRoster, true)       -- принудительная запись перед выгрузкой
+    pcall(saveUpdateState)        -- чтобы не потерять готовое обновление
 end

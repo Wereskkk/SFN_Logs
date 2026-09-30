@@ -720,6 +720,53 @@ fillRoster(3)
 
 SFNLogs.setMenu(1)
 
+-- ============================== v2.2.0: АВТООБНОВЛЕНИЕ В ОКНЕ ==============
+section('v2.2.0: раздел «Обновления» в настройках и справка')
+
+cfg.update = { enabled = true, auto = true, url = UPDATE_URL_DEFAULT, every = 21600 }
+local upd = SFNLogs.update.info
+upd.lastCheck, upd.available, upd.ready = 0, '', false
+upd.pendingPath, upd.lastError = '', ''
+upd.installedAt, upd.installedVer, upd.notified = 0, '', ''
+
+SFNLogs.setMenu(3)
+local infoU22 = checkFrame('настройки v2.2.0: обновления')
+ok('настройки: раздел «Обновления»', frameHasText(infoU22, 'Обновления'))
+ok('настройки: галочка проверки обновлений',
+   frameHasText(infoU22, 'Проверять обновления автоматически'))
+ok('настройки: галочка автоустановки', frameHasText(infoU22, 'Ставить новую версию сразу'))
+ok('настройки: кнопка проверки', frameHasText(infoU22, 'ПРОВЕРИТЬ ОБНОВЛЕНИЯ'))
+ok('настройки: строка «обновлений нет»', frameHasText(infoU22, 'обновлений'))
+ok('настройки: последняя проверка', frameHasText(infoU22, 'последняя проверка'))
+ok('настройки: упомянут резервный файл .bak', frameHasText(infoU22, 'SFNLogs.lua.bak'))
+ok('настройки: нет кнопки установки, пока нечего ставить',
+   not frameHasText(infoU22, 'ПОСТАВИТЬ ОБНОВЛЕНИЕ'))
+ok('настройки: раздел «Служебное» остался', frameHasText(infoU22, 'Служебное'))
+
+-- скачанное обновление: появляется кнопка установки и номер версии
+upd.available, upd.ready = '9.9.9', true
+upd.pendingPath = '/tmp/sfntest_ui/update.lua.new'
+local infoR22 = checkFrame('настройки v2.2.0: обновление готово')
+ok('готова версия - виден её номер', frameHasText(infoR22, '9.9.9'))
+ok('готова версия - есть кнопка установки', frameHasText(infoR22, 'ПОСТАВИТЬ ОБНОВЛЕНИЕ'))
+upd.available, upd.ready, upd.pendingPath = '', false, ''
+
+-- ошибка проверки видна пользователю
+upd.lastError = 'сеть молчит 10 с'
+local infoE22 = checkFrame('настройки v2.2.0: ошибка обновления')
+ok('ошибка проверки показана в настройках', frameHasText(infoE22, 'сеть молчит 10 с'))
+upd.lastError = ''
+
+-- «О скрипте»: блок про обновления и команда
+SFNLogs.setMenu(4)
+local infoA22 = checkFrame('о скрипте v2.2.0')
+ok('о скрипте: есть блок «Обновления»', frameHasText(infoA22, 'Обновления'))
+ok('о скрипте: упомянута резервная копия', frameHasText(infoA22, 'SFNLogs.lua.bak'))
+ok('о скрипте: упомянута команда /sfnlogupdate', frameHasText(infoA22, '/sfnlogupdate'))
+ok('о скрипте: упомянут /reload', frameHasText(infoA22, '/reload'))
+
+SFNLogs.setMenu(1)
+
 -- ============================================ ОТКАЗ DRAWLIST (деградация) =
 section('аварийный режим без DrawList')
 local savedOk = SFNLogs.layoutInfo().drawListOk

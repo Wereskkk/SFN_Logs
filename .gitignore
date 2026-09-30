@@ -1,0 +1,36 @@
+# Файлы, которые скрипт создаёт в игре (папка moonloader\SFNLogs\ и бэкап рядом
+# со скриптом). В репозиторий попадать не должны — это локальное состояние игрока.
+#
+# Все шаблоны привязаны к корню (ведущий «/»), чтобы НЕ задеть файлы проекта:
+# тестовую фикстуру delivery/proekt/tests/fixtures/chat_dump_2026-09-28.txt,
+# тестовые конфиги и временные файлы прогона.
+/config.ini
+/roster.json
+/hotkey.json
+/update.json
+/update.lua.new
+/chat_dump.txt
+/export.txt
+/log.txt
+/api_*.json
+/*.lua.bak
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Lua / LuaJIT
+*.luac
+
+# Редакторы и ОС
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
