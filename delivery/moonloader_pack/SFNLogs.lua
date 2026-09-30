@@ -1,5 +1,5 @@
 script_name('SFN Logs')
-script_version('2.2.0')
+script_version('2.2.1')
 script_author('San Fierro News')
 
 -- Версия одна на весь файл и объявлена в самом верху.
@@ -10,7 +10,7 @@ script_author('San Fierro News')
 -- поэтому SFN_VERSION_STR читался там как глобальный nil, и любая проверка
 -- обновления отвечала «версия не новее текущей nil». Теперь литерал ровно
 -- один, и он обязан совпадать со script_version() (проверяется тестом).
-SFN_VERSION_STR = '2.2.0'
+SFN_VERSION_STR = '2.2.1'
 
 --[[
     Журнал состава San Fierro News.
@@ -60,6 +60,10 @@ SFN_VERSION_STR = '2.2.0'
     каждый ник в очередь Evolve Logs API. Ответ API проверяется: данные
     получены / «записей нет» (404 NOT_FOUND) — вопрос закрыт, сетевой сбой —
     повтор с растущей паузой (по умолчанию до 3 попыток), затем откат.
+
+    ЛОГОТИП (v2.2.1): в сайдбаре — фирменный знак редакции (круг с брызгами и
+    буквой E), восстановленный вектором по исходнику assets/logo_source.jpg;
+    прежний знак (круг с микрофоном редакции) удалён.
 
     АВТООБНОВЛЕНИЕ (v2.2.0): скрипт сам берёт свежую версию из ветки main
     репозитория GitHub (raw-адрес, без ключей и без лимита API) и подменяет свой
@@ -3266,17 +3270,48 @@ end
 local SIDEBAR_W = 160
 local MENU_W, MENU_H = 140, 30
 
+-- Фирменный знак редакции (v2.2.1): векторная реконструкция логотипа —
+-- малиновый круг с «брызгами» слева сверху и белой буквой E. Формы сняты
+-- попиксельно с исходника assets/logo_source.jpg (800x800): подгонка круга по
+-- правой/нижней дуге, связные компоненты для брызг, профили строк для буквы.
+-- Координаты — в долях стороны квадрата логотипа, поэтому знак, как и раньше,
+-- рисуется примитивами DrawList: масштабируется под DPI, не требует файлов в
+-- moonloader и виден в SVG-превью и тестах.
+local LOGO_PINK = RGBf(0.800, 0.196, 0.306)      -- фирменный малиновый (204,50,78)
+local LOGO_CIRCLE = { 0.5316, 0.6000, 0.4000 }   -- cx, cy, r
+-- брызги: { dx, dy, r }; первые две — доли, сросшиеся с кругом (выступы силуэта)
+local LOGO_SPLASH = {
+    { 0.4640, 0.2059, 0.0706 },
+    { 0.1625, 0.6294, 0.0559 },
+    { 0.2757, 0.3897, 0.0588 },
+    { 0.3257, 0.2632, 0.0529 },
+    { 0.1934, 0.5044, 0.0471 },
+    { 0.3978, 0.0824, 0.0338 },
+    { 0.1640, 0.3191, 0.0265 },
+    { 0.2640, 0.0235, 0.0235 },
+    { 0.2478, 0.0882, 0.0221 },
+    { 0.0904, 0.4985, 0.0206 },
+    { 0.1581, 0.2279, 0.0206 },
+    { 0.0904, 0.3279, 0.0206 },
+}
+-- буква E: стойка и три перекладины со скруглёнными концами { dx, dy, w, h, r }
+local LOGO_E = {
+    { 0.4007, 0.4603, 0.1132, 0.3338, 0.0559 },
+    { 0.4007, 0.4603, 0.2750, 0.0779, 0.0382 },
+    { 0.4007, 0.5882, 0.2235, 0.0691, 0.0338 },
+    { 0.4007, 0.7147, 0.2809, 0.0809, 0.0397 },
+}
+
 local function drawLogo(x, y)
     local dl = winDL()
-    local s = S(42)
-    -- свой логотип в их стиле: малиновый круг с микрофоном редакции
-    dot(dl, x + s * 0.5, y + s * 0.5, s * 0.5, C.accent)
-    dot(dl, x + s * 0.16, y + s * 0.10, s * 0.07, C.accent)
-    dot(dl, x + s * 0.02, y + s * 0.34, s * 0.05, C.accent)
-    local mh = s * 0.52
-    local mx, my = x + (s - mh) * 0.5, y + (s - mh) * 0.5
-    fillRect(dl, mx + mh * 0.32, my, mh * 0.36, mh * 0.46, C.text, mh * 0.18)
-    pdraw(dl.AddCircle, dl, V(mx + mh * 0.5, my + mh * 0.46), mh * 0.34, CU(C.text), 12)
+    local s = S(46)
+    dot(dl, x + LOGO_CIRCLE[1] * s, y + LOGO_CIRCLE[2] * s, LOGO_CIRCLE[3] * s, LOGO_PINK)
+    for _, d in ipairs(LOGO_SPLASH) do
+        dot(dl, x + d[1] * s, y + d[2] * s, d[3] * s, LOGO_PINK)
+    end
+    for _, r in ipairs(LOGO_E) do
+        fillRect(dl, x + r[1] * s, y + r[2] * s, r[3] * s, r[4] * s, C.text, r[5] * s)
+    end
     return s
 end
 
@@ -3288,10 +3323,10 @@ local function drawSidebar(h)
     fillRect(dl, x, y, S(SIDEBAR_W), h, C.sidebar)
 
     -- строка логотипа: графика рисуется в её координатах, высота задана якорем
-    local lx, ly = anchoredRow('logo', S(42))
+    local lx, ly = anchoredRow('logo', S(46))
     local ls = drawLogo(lx + S(8), ly)
     pushFont(fonts.big)
-    drawTextClipped(dl, lx + S(8) + ls + S(8), ly + S(10), 'SFN Logs', C.text,
+    drawTextClipped(dl, lx + S(8) + ls + S(8), ly + S(12), 'SFN Logs', C.text,
                     S(SIDEBAR_W) - ls - S(24))
     popFont(fonts.big)
     advance(S(16))
@@ -4377,7 +4412,7 @@ local function computeLayout(now)
     end
 
     local bodyH = bodyDesired(now, rows, widths)
-    local sideH = S(42 + 16 + 8) + #MENU_ITEMS * (S(MENU_H) + S(6)) + S(60)
+    local sideH = S(46 + 16 + 8) + #MENU_ITEMS * (S(MENU_H) + S(6)) + S(60)
 
     local winW = S(SIDEBAR_W) + bodyW + S(30)
     local winH = math.max(S(520), math.max(sideH, bodyH) + S(40)
