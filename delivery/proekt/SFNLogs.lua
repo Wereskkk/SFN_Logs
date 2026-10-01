@@ -1,5 +1,5 @@
 script_name('SFN Logs')
-script_version('2.2.2')
+script_version('2.2.3')
 script_author('San Fierro News')
 
 -- Версия одна на весь файл и объявлена в самом верху.
@@ -10,7 +10,7 @@ script_author('San Fierro News')
 -- поэтому SFN_VERSION_STR читался там как глобальный nil, и любая проверка
 -- обновления отвечала «версия не новее текущей nil». Теперь литерал ровно
 -- один, и он обязан совпадать со script_version() (проверяется тестом).
-SFN_VERSION_STR = '2.2.2'
+SFN_VERSION_STR = '2.2.3'
 
 --[[
     Журнал состава San Fierro News.
@@ -1784,7 +1784,16 @@ local function onServerMessage(color, text)
     pcall(membersFeed, text)
 end
 
+-- ПОДПИСКА на события чата (v2.2.3): в 2.1.0 при удалении перехвата чата эта
+-- строка потерялась вместе со старым блоком, и вывод /members перестал
+-- перехватываться в игре, хотя тесты (они зовут membersFeed напрямую) были
+-- зелёные. Возвращена подписка + функциональный тест и страховка исходника.
+if sampev then
+    function sampev.onServerMessage(color, text) onServerMessage(color, text) end
+end
+
 SFNLogs = SFNLogs or {}
+SFNLogs.onServerMessage = onServerMessage   -- для тестов и консоли MoonLoader
 
 -- ============================================ EVOLVE LOGS API =============
 --

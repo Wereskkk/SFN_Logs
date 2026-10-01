@@ -728,6 +728,35 @@ ok('после установки проверка не нужна', UPD.needChe
 downloadUrlToFile = dlHealthy
 thisScript = function() return {} end
 
+-- ====================== v2.2.3: ПЕРЕХВАТ /members ИЗ ЧАТА (регресс) ========
+-- В 2.1.0 подписка sampev.onServerMessage потерялась: в игре вывод /members
+-- не разбирался, а тесты (membersFeed напрямую) оставались зелёными.
+-- Теперь проверяем весь путь: CP1251-байты чата -> onServerMessage -> состав.
+
+section('v2.2.3: onServerMessage перехватывает блок /members')
+roster.members = {}
+membersReset()
+local live = io.open('tests/fixtures/chat_dump_2026-09-28.txt', 'rb'):read('*a')
+-- фикстура в UTF-8; чат игры приходит в CP1251 - конвертируем штатной
+-- utf8ToCp1251 из PURE-секции (она глобальная)
+local cpLines = {}
+for line in (utf8ToCp1251(live) .. '\n'):gmatch('([^\n]*)\n') do
+    cpLines[#cpLines + 1] = line
+end
+ok('фикстура прочитана и перекодирована', #cpLines > 5, #cpLines)
+for _, line in ipairs(cpLines) do
+    SFNLogs.onServerMessage(-1, line)
+end
+local got = 0
+for _ in pairs(roster.members) do got = got + 1 end
+ok('состав из живого дампа перехвачен через onServerMessage', got >= 10, got)
+ok('Jonny_Wilde в журнале', roster.members['Jonny_Wilde'] ~= nil)
+ok('ранг из /members применён', roster.members['Jonny_Wilde']
+   and roster.members['Jonny_Wilde'].rank == 9,
+   roster.members['Jonny_Wilde'] and roster.members['Jonny_Wilde'].rank)
+roster.members = {}
+membersReset()
+
 print(string.format('\n%s: %d passed, %d failed',
                     failed == 0 and 'OK' or 'FAIL', passed, failed))
 if failed > 0 then error('api-тесты провалены') end
