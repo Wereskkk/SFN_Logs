@@ -81,10 +81,10 @@ jobs:
       - name: Сетевой слой и автообновление (tests/test_api.lua)
         run: python tests/run_api.py
 
-      - name: Helper: логика модулей (Фото)
+      - name: "Helper: логика модулей (Фото)"
         run: python tests/run_helper_logic.py
 
-      - name: Helper: вёрстка вкладок
+      - name: "Helper: вёрстка вкладок"
         run: python tests/run_helper_ui.py
 
       - name: Превью разделов собираются без ошибок раскладки
