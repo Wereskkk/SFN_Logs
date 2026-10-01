@@ -14,7 +14,8 @@ name: tests
 #   api    145 — сетевой слой: статусы 6/58, гонка «статус раньше тела»,
 #                тишина, 404 NOT_FOUND, повторы и откат, автообновление;
 #   strict     — отдельная проверка, что DrawList жив и окно не деградировало
-#                в текстовый режим (цвета и примитивы реально вызываются).
+#                в текстовый режим (цвета и примитивы реально вызываются);
+#   helper     — логика модулей SFN_Helper (51) и вёрстка его вкладок (59).
 
 on:
   push:
@@ -79,6 +80,12 @@ jobs:
 
       - name: Сетевой слой и автообновление (tests/test_api.lua)
         run: python tests/run_api.py
+
+      - name: Helper: логика модулей (Фото)
+        run: python tests/run_helper_logic.py
+
+      - name: Helper: вёрстка вкладок
+        run: python tests/run_helper_ui.py
 
       - name: Превью разделов собираются без ошибок раскладки
         run: python tests/render_svg.py
