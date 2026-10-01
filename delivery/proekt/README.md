@@ -166,7 +166,7 @@ python tests/run_ui.py                   # 272 passed — вёрстка окн�
 python tests/run_ui_strict_colors.py     # DrawList жив, окно не «голое»
 python tests/run_api.py                  # 149 passed — сетевой слой,
                                          # автообновление, откат установки
-python tests/run_helper_logic.py         # 843 passed — ядро SFN_Helper
+python tests/run_helper_logic.py         # 853 passed — ядро SFN_Helper
                                          # и модули Фото/Эфир/Соцопрос
 python tests/run_helper_ui.py            # 192 passed — вёрстка вкладок
 python tests/render_svg.py               # preview/*.svg (10 сцен)

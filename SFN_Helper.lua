@@ -1,5 +1,5 @@
 script_name('SFN Helper')
-script_version('0.2.0')
+script_version('0.3.0')
 script_author('San Fierro News')
 
 -- Версия одна на весь файл и объявлена в самом верху.
@@ -10,7 +10,7 @@ script_author('San Fierro News')
 -- поэтому SFN_VERSION_STR читался там как глобальный nil, и любая проверка
 -- обновления отвечала «версия не новее текущей nil». Теперь литерал ровно
 -- один, и он обязан совпадать со script_version() (проверяется тестом).
-SFN_VERSION_STR = '0.2.0'
+SFN_VERSION_STR = '0.3.0'
 
 --[[
     SFN Helper: журнал состава San Fierro News и модули редакции в одном
@@ -352,6 +352,30 @@ local function writeFile(path, data)
 end
 
 -- ================================================================ INI =====
+-- v0.2.0: перенос данных SFN Logs (журнал состава, настройки, выгрузка) в
+-- папку Helper-а, если своей ещё нет. Исходные файлы НЕ удаляются: SFN Logs
+-- может остаться рядом и работать дальше, а откат ничего не теряет.
+LEGACY_DIR = (getWorkingDirectory and getWorkingDirectory() or '.') .. '\\SFNLogs'
+
+function migrateLegacyData()
+    if LEGACY_DIR == DIR then return 0 end
+    if doesDirectoryExist and not doesDirectoryExist(LEGACY_DIR) then return 0 end
+    local moved = 0
+    for _, name in ipairs({ 'roster.json', 'config.ini', 'export.txt' }) do
+        local src = LEGACY_DIR .. '\\' .. name
+        local dst = DIR .. '\\' .. name
+        if not readFile(dst) then
+            local data = readFile(src)
+            if data and data ~= '' then
+                if doesDirectoryExist and not doesDirectoryExist(DIR) then
+                    if createDirectory then pcall(createDirectory, DIR) end
+                end
+                if writeFile(dst, data) then moved = moved + 1 end
+            end
+        end
+    end
+    return moved
+end
 
 local function loadIni(path)
     local out, section = {}, nil
@@ -7912,9 +7936,16 @@ function main()
         logEvent('samp.events не загрузился (' .. tostring(sampevErr) ..
                  ') - вывод /members не перехватывается, журнал работает в ручном режиме')
     end
+    -- журнал и настройки SFN Logs переезжают в нашу папку ДО loadConfig:
+    -- иначе первый запуск помощника показывал бы пустой состав
+    local migrated = migrateLegacyData()
     loadConfig()
     loadRoster()
     loadUpdateState()
+    if migrated > 0 then
+        say(string.format('{66FF66}[SFN Helper] перенесены данные SFN Logs (%d файл(ов)) из %s',
+            migrated, LEGACY_DIR))
+    end
     resetAddForm()
     refShowDismissed[0] = cfg.showDismissed
     refMembersEnabled[0] = cfg.members and cfg.members.enabled or true

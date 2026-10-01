@@ -7,6 +7,13 @@ local SRC = arg[1] or '../../SFN_Helper.lua'
 -- ------------------------------------------------------------ заглушки ----
 local TMP = '/tmp/sfnhelper_test'
 os.execute('mkdir -p ' .. TMP)
+os.execute('mkdir -p ' .. TMP .. '/SFNHelper')
+os.execute('mkdir -p ' .. TMP .. '/SFNLogs')
+os.execute('mkdir -p ' .. TMP .. '/sfn_photo_data')
+os.execute('mkdir -p ' .. TMP .. '/sfn_data')
+-- DIR и LEGACY_DIR в исходнике строятся от USERPROFILE: без заглузы os.getenv
+-- возвращает nil, и конкатенация nil .. '\\SFNHelper' уронила бы загрузку
+os.getenv = function() return TMP end
 getWorkingDirectory  = function() return TMP end
 doesDirectoryExist   = function() return true end
 createDirectory      = function() return true end
@@ -16,13 +23,16 @@ local body = full:match('\n%-%- >>> PURE LOGIC BEGIN(.-)\n%-%- <<< PURE LOGIC EN
 assert(body, 'метки PURE LOGIC не найдены в ' .. SRC)
 body = body .. [[
 
-return { json = json, PATHS = PATHS, readFile = readFile, writeFile = writeFile }
+return { json = json, PATHS = PATHS, DIR = DIR, readFile = readFile, writeFile = writeFile }
 ]]
 local chunk, err = load(body, 'purelogic')
 assert(chunk, err)
 local exposed = assert(chunk())
 local writeFile = exposed.writeFile
 local readFile  = exposed.readFile
+-- DIR/PATHS в исходнике local главного чанка: берём их из таблицы, которую
+-- возвращает извлечённая PURE-секция
+local DIR, PATHS = exposed.DIR, exposed.PATHS
 
 -- ------------------------------------------------------------ ассерты ----
 local passed, failed = 0, 0
@@ -43,9 +53,9 @@ local function section(t) print('\n== ' .. t) end
 -- ============================================ ЯДРО ПОМОЩНИКА ==============
 section('helper: идентификация ядра')
 ok('имя скрипта - SFN Helper', full:find("script_name('SFN Helper')", 1, true) ~= nil)
-ok('версия шапки и литерал совпадают (0.2.0)',
-   full:find("script_version('0.2.0')", 1, true) ~= nil
-   and full:find("SFN_VERSION_STR = '0.2.0'", 1, true) ~= nil)
+ok('версия шапки и литерал совпадают (0.3.0)',
+   full:find("script_version('0.3.0')", 1, true) ~= nil
+   and full:find("SFN_VERSION_STR = '0.3.0'", 1, true) ~= nil)
 ok('апдейтер берёт SFN_Helper.lua',
    full:find('raw.githubusercontent.com/Wereskkk/SFN_Logs/main/SFN_Helper.lua', 1, true) ~= nil)
 ok('папка данных - SFNHelper', full:find(".. '\\\\SFNHelper'", 1, true) ~= nil)
@@ -82,9 +92,9 @@ local function fakeScript(name, ver)
     while #head < 60100 do head = head .. '\n-- x' end
     return head
 end
-eq('валидация принимает Helper новее', validateScriptText(fakeScript('SFN Helper', '9.9.9'), '0.2.0'), '9.9.9')
+eq('валидация принимает Helper новее', validateScriptText(fakeScript('SFN Helper', '9.9.9'), '0.3.0'), '9.9.9')
 ok('валидация отвергает чужое имя (SFN Logs)',
-   select(1, validateScriptText(fakeScript('SFN Logs', '9.9.9'), '0.2.0')) == nil)
+   select(1, validateScriptText(fakeScript('SFN Logs', '9.9.9'), '0.3.0')) == nil)
 
 -- ============================================ ФОТО: ДИАЛОГ ПАПАРАЦЦИ =======
 section('фото: колонка «Фото» в заказ-диалоге')
@@ -756,6 +766,38 @@ social.log = {}
 for i = 1, 25 do socialLogAdd('событие ' .. i) end
 eq('журнал ограничен 20 записями', #social.log, 20)
 ok('свежие сверху', social.log[1]:find('событие 25', 1, true) ~= nil, social.log[1])
+
+-- ============================================ ПЕРЕНОС ДАННЫХ SFN LOGS ======
+section('helper: перенос журнала из папки SFN Logs')
+
+ok('пути разные: SFNHelper и SFNLogs', DIR ~= LEGACY_DIR, DIR .. ' vs ' .. LEGACY_DIR)
+ok('старая папка - SFNLogs', LEGACY_DIR:find('SFNLogs') ~= nil, LEGACY_DIR)
+
+local legacyRoster = LEGACY_DIR .. '\\roster.json'
+local legacyCfg = LEGACY_DIR .. '\\config.ini'
+local myRoster = PATHS.roster
+local myCfg = PATHS.config
+os.remove(myRoster); os.remove(myCfg); os.remove(PATHS.export)
+writeFile(legacyRoster, '{"members":{"Jonny_Wilde":{"rank":9}},"version":1}')
+writeFile(legacyCfg, '[window]\nhotkey = 120\n')
+
+eq('первый запуск перенёс два файла', migrateLegacyData(), 2)
+ok('журнал скопирован в папку Helper-а', readFile(myRoster) ~= nil)
+ok('содержимое журнала не повреждено',
+   (readFile(myRoster) or ''):find('Jonny_Wilde', 1, true) ~= nil)
+ok('настройки скопированы', (readFile(myCfg) or ''):find('hotkey = 120', 1, true) ~= nil)
+ok('исходные файлы не удалены (откат безопасен)',
+   readFile(legacyRoster) ~= nil and readFile(legacyCfg) ~= nil)
+eq('повторный запуск ничего не трогает', migrateLegacyData(), 0)
+
+-- свои данные не затираются чужими
+writeFile(myRoster, '{"members":{"My_Own":{"rank":5}},"version":1}')
+writeFile(legacyRoster, '{"members":{"Other":{"rank":1}},"version":1}')
+eq('перенос не перезаписывает свой журнал', migrateLegacyData(), 0)
+ok('свой журнал уцелел', (readFile(myRoster) or ''):find('My_Own', 1, true) ~= nil)
+
+os.remove(myRoster); os.remove(myCfg); os.remove(PATHS.export)
+os.remove(legacyRoster); os.remove(legacyCfg)
 
 -- ============================================================ ИТОГ =======
 print(string.format('\n%d passed, %d failed', passed, failed))

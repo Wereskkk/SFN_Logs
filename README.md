@@ -5,13 +5,13 @@ Role Play, сервер Saint-Louis). Два готовых к установк�
 
 | файл | что это | версия |
 |---|---|---|
-| [`SFN_Helper.lua`](SFN_Helper.lua) | **всё в одном**: журнал состава + модули редакции в общем окне с вкладками | 0.2.0 |
+| [`SFN_Helper.lua`](SFN_Helper.lua) | **всё в одном**: журнал состава + модули редакции в общем окне с вкладками | 0.3.0 |
 | [`SFNLogs.lua`](SFNLogs.lua) | только журнал состава (прежний отдельный скрипт) | 2.2.4 |
 
 Оба файла обновляют себя сами из ветки `main`, поэтому **коммит в `main` =
 релиз для всех, кто установил скрипт**. Перед вливанием обязан пройти
 GitHub Actions (`.github/workflows/tests.yml`): 554 + 272 + 149 проверок
-SFN Logs и 843 + 192 проверки SFN_Helper.
+SFN Logs и 853 + 192 проверки SFN_Helper.
 
 ---
 
@@ -55,10 +55,12 @@ moonloader\lib\samp\events.lua         <- SAMPFUNCS: перехват /members, 
 1. Скопируйте `SFN_Helper.lua` в `moonloader\`.
 2. Удалите (или выгрузите) `sfn_photo_helper.lua`, `sfn_efir_helper.lua`,
    `sfn_social.lua` — иначе их окна и хоткеи будут дублироваться.
-3. В игре введите `/reload`. Базы подхватятся сами: фото и соцопрос из
-   `sfn_photo_data\`, эфир из `sfn_data\`, пол игроков при первом запуске
-   сольётся в общий `SFNHelper\genders.json` (старые файлы не перезаписываются,
-   поэтому откат на отдельные скрипты возможен).
+3. В игре введите `/reload`. Данные подхватятся сами: журнал состава и
+   настройки переедут из `moonloader\SFNLogs\` в `moonloader\SFNHelper\`
+   (исходные файлы не удаляются), фото и соцопрос читаются из
+   `sfn_photo_data\`, эфир — из `sfn_data\`, пол игроков при первом запуске
+   сливается в общий `SFNHelper\genders.json`. Откат на прежние скрипты
+   возможен: ничего не перезаписывается и не удаляется.
 4. Доступ к «Эфиру» — по нику (список ведущих перенесён из оригинала); если
    вкладка показывает замок, обратитесь к Jonny Wilde.
 
@@ -111,7 +113,7 @@ pip install lupa pillow pyyaml
 python delivery/proekt/tests/run_logic.py          # 554 passed
 python delivery/proekt/tests/run_ui.py             # 272 passed
 python delivery/proekt/tests/run_api.py            # 149 passed
-python delivery/proekt/tests/run_helper_logic.py   # 843 passed
+python delivery/proekt/tests/run_helper_logic.py   # 853 passed
 python delivery/proekt/tests/run_helper_ui.py      # 192 passed
 python delivery/proekt/tools/sync_delivery.py --check
 ```
