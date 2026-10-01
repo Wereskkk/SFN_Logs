@@ -60,6 +60,13 @@ ok('команда /sfnhelper зарегистрирована',
    full:find("sampRegisterChatCommand('sfnhelper'", 1, true) ~= nil)
 ok('реестр модулей global (лимит 200 локалей чанка)',
    full:find('local MODULES', 1, true) == nil and full:find('MODULES, MODULE_BY_ID = {}, {}', 1, true) ~= nil)
+-- без этих диспетчеров модули не получают ни кадров, ни сигнала выгрузки
+ok('диспетчер onTick: главный цикл дёргает модули',
+   full:find('if mod.onTick then pcall(mod.onTick, now) end', 1, true) ~= nil)
+ok('диспетчер onTerminate: выгрузка скрипта сохраняет базы модулей',
+   full:find('if mod.onTerminate then pcall(mod.onTerminate) end', 1, true) ~= nil)
+ok('диспетчер onLoad: main() инициализирует модули',
+   full:find('if mod.onLoad then pcall(mod.onLoad) end', 1, true) ~= nil)
 
 -- валидация автообновления отличает Helper от Logs
 local function fakeScript(name, ver)
@@ -219,6 +226,177 @@ photoReset()
 photoLoad()
 eq('битый файл: игроков ноль', photoCountPlayers(), 0)
 eq('битый файл: мест ноль', photoCountPlaces(), 0)
+
+-- ============================================ ЭФИР: ДОСТУП И ФОРМЫ ========
+section('эфир: sha256, доступ, русские формы')
+eq('sha256("abc") эталон', efirSha256('abc'),
+   'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
+eq('sha256("") эталон', efirSha256(''),
+   'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
+eq('sha256 ника стабилен и длиной 64', #efirSha256('Jonny_Wilde' .. EFIR_AUTH_SALT), 64)
+ok('Unknown не админ', efirIsAdmin('Unknown') == false)
+ok('случайный ник не в списке', efirIsAllowed('Random_Person') == false)
+ok('пустой ник не в списке', efirIsAllowed('') == false)
+
+eq('pluralScore 1', efirPluralScore(1), 'балл')
+eq('pluralScore 2', efirPluralScore(2), 'балла')
+eq('pluralScore 5', efirPluralScore(5), 'баллов')
+eq('pluralScore 11', efirPluralScore(11), 'баллов')
+eq('pluralScore 21', efirPluralScore(21), 'балл')
+eq('форма мужского пола', efirGenderForms('Any_Nick').first, 'первый')
+efirGenders['Girl_Nick'] = 'f'
+eq('форма женского пола', efirGenderForms('Girl_Nick').first, 'первая')
+eq('форма женского: дала', efirGenderForms('Girl_Nick').gave, 'дала')
+efirGenders['Girl_Nick'] = nil
+
+-- знак уходит только с самого конца строки (поведение оригинала),
+-- пробелы схлопываются после: 'Ёлка? ' -> 'ЁЛКА?' ровно как в v7.0.1
+eq('normalizeAnswer: ё не сворачивается, как в оригинале',
+   efirNormalizeAnswer(utf8ToCp1251('Ёлка?')), utf8ToCp1251('ЁЛКА'))
+eq('normalizeAnswer: знак с конца и пробелы внутри',
+   efirNormalizeAnswer(utf8ToCp1251('При вет!')), utf8ToCp1251('ПРИВЕТ'))
+eq('formatNick подчёркивание', efirFormatNick('Jonny_Wilde'), 'Jonny Wilde')
+eq('capitalizeWord', efirCapitalizeWord('привет'), 'Привет')
+eq('anagram dots', efirFormatAnagramDots('КОТ'), 'К.О.Т')
+
+efirScreenshots = 3
+efirMode, efirType = 'math', 'Математика'
+eq('placeholders', efirApplyPlaceholders('{NICK} ведёт {TYPE}, скринов {N}', { nick = 'My_Nick' }),
+   'My Nick ведёт Математика, скринов 3')
+efirScreenshots = 0
+
+-- ============================================ ЭФИР: ГЕНЕРАТОРЫ =============
+section('эфир: генераторы заданий')
+local function evalExpr(expr)
+    local f = load('return (' .. expr .. ')')
+    if not f then return nil end
+    return f()
+end
+local kinds = {}
+for _ = 1, 300 do
+    local q, a, suffix = efirGenerateMath()
+    ok('пример не пустой', q ~= '' and a ~= nil, q)
+    if suffix == ', x = ?' then
+        local lhs, rhs = q:match('^(.-)%s*=%s*(.+)$')
+        local sub = lhs:gsub('x', '(' .. a .. ')')
+        local lv, rv = evalExpr(sub), evalExpr(rhs)
+        ok('уравнение сходится: ' .. q, lv ~= nil and rv ~= nil and math.abs(lv - rv) < 1e-9,
+           tostring(lv) .. ' vs ' .. tostring(rv))
+    else
+        local v = evalExpr(q)
+        ok('пример сходится: ' .. q, v ~= nil and math.abs(v - a) < 1e-9, tostring(v) .. ' vs ' .. tostring(a))
+    end
+    kinds[#kinds + 1] = suffix == ', x = ?' and 'eq' or 'arith'
+end
+ok('генератор крутится без ошибок', #kinds == 300)
+
+efirAnagrams = { 'ПРИВЕТ' }
+local word, shuffled = efirGenerateAnagram()
+eq('анаграмма взята из базы', word, 'ПРИВЕТ')
+local function sortedChars(s)
+    local ch = efirSplitUtf8(s)
+    table.sort(ch)
+    return table.concat(ch, '|')
+end
+ok('анаграмма - перестановка букв', sortedChars(shuffled or '') == sortedChars('ПРИВЕТ'), shuffled)
+
+efirWords = { 'ТЕЛЕВИЗОР' }
+local w, masked = efirGenerateVyshibaly()
+eq('вышибалы: слово из базы', w, 'ТЕЛЕВИЗОР')
+ok('вышибалы: маска той же длины', #efirSplitUtf8(masked) == #efirSplitUtf8('ТЕЛЕВИЗОР'), masked)
+ok('вышибалы: есть закрытые позиции', masked:find('[*_]') ~= nil, masked)
+ok('вышибалы: маска не равна слову', masked ~= w)
+
+-- ============================================ ЭФИР: ОТВЕТЫ И СЧЁТ ==========
+section('эфир: разбор ответов и начисление')
+efirRunning, efirMode = true, 'math'
+efirMathQ, efirMathA, efirMathSuffix = '2 + 2', 4, ' = ?'
+efirFirstAnswer = nil
+ok('ответ распознан', efirTryParseAnswer('Jonny_Wilde[248]: [EFIR] 4.') == true)
+ok('первый ответ запомнен', efirFirstAnswer ~= nil and efirFirstAnswer.nick == 'Jonny_Wilde')
+ok('второй верный не перезаписал первого', (function()
+    efirTryParseAnswer('Anna_Malboro[264]: [EFIR] 4.')
+    return efirFirstAnswer.nick == 'Jonny_Wilde'
+end)())
+efirFirstAnswer = nil
+ok('неверный ответ не запомнен', (function()
+    efirTryParseAnswer('Jonny_Wilde[248]: [EFIR] 5.')
+    return efirFirstAnswer == nil
+end)())
+ok('без ника ответ не считается', efirTryParseAnswer('[EFIR] 4.') == false)
+ok('эфир выключен: ответ помечается, но не пишется', (function()
+    efirRunning = false
+    local r = efirTryParseAnswer('Jonny_Wilde[248]: [EFIR] 4.')
+    efirRunning = true
+    return r == true and efirFirstAnswer == nil
+end)())
+
+efirScores = {}
+efirFirstAnswer = { nick = 'Jonny_Wilde', id = 248, answer = '4' }
+local ev = efirApplyCorrect('Jonny_Wilde', 248)
+eq('балл начислен', efirScores['Jonny_Wilde'].score, 1)
+ok('событие сохранения', (function() for _, e in ipairs(ev) do if e.save == 'scores' then return true end end end)())
+ok('фраза с мужской формой', (function()
+    for _, e in ipairs(ev) do
+        if e.chat and e.chat:find('первый дал правильный ответ и у него 1 балл', 1, true) then return true end
+    end
+end)(), ev[2] and ev[2].chat)
+ok('событие показа ответа', (function() for _, e in ipairs(ev) do if e.reveal == '4' then return true end end end)())
+efirApplyCorrect('Jonny_Wilde', 248)
+eq('второй балл добавился', efirScores['Jonny_Wilde'].score, 2)
+
+efirScores = { A = { id = 1, score = 5 }, B = { id = 2, score = 5 }, C = { id = 3, score = 2 } }
+local groups = efirTopScoreGroups()
+eq('групп две', #groups, 2)
+eq('ранг первой группы', groups[1].rank, 1)
+eq('в первой группе двое', #groups[1].nicks, 2)
+eq('вторая группа с 2 баллами', groups[2].score, 2)
+
+-- упаковка строк в сообщения чата
+local items = {}
+for i = 1, 10 do items[i] = string.rep('x', 40) end
+local packed = efirPackMessages(items, 'Топ: ', '   ')
+ok('сообщения не длиннее 120', (function()
+    for _, m in ipairs(packed) do if #m > 120 then return false end end
+    return true
+end)(), #packed)
+ok('все элементы упакованы', (function()
+    local total = 0
+    for _, m in ipairs(packed) do total = total + select(2, m:gsub('xxxx', '')) - 1 end
+    return #packed >= 3 and #packed <= 6
+end)(), #packed)
+ok('первое сообщение с первым префиксом', packed[1]:find('Топ: ', 1, true) == 1)
+
+-- ============================================ ЭФИР: ФАЙЛЫ СОВМЕСТИМЫ =======
+section('эфир: конфиг и базы старого скрипта')
+writeFile(EFIR_CFG_PATH, '{"hotkey":122,"max_score":30,"prize_fund":777,"price_per_minute":1,"screenshot_interval":2}')
+efirCfg.max_score, efirCfg.hotkey = 20, 0x7A
+efirLoadConfig()
+eq('max_score из старого конфига', efirCfg.max_score, 30)
+eq('hotkey из старого конфига', efirCfg.hotkey, 122)
+eq('prize_fund из старого конфига', efirCfg.prize_fund, 777)
+
+writeFile(EFIR_SCORES, '{"Old_Player":{"id":7,"score":3}}')
+efirScores = {}
+efirLoadScores()
+eq('старые баллы прочитаны', efirScores['Old_Player'] and efirScores['Old_Player'].score, 3)
+
+writeFile(EFIR_GENDERS, '{"Girl_Nick":"f","Bad":123}')
+efirGenders = {}
+efirLoadGenders()
+eq('пол прочитан', efirGenders['Girl_Nick'], 'f')
+eq('мусор отброшен', efirGenders['Bad'], nil)
+
+writeFile(EFIR_TEXTS, 'return { intro = { jingle = "j", lines = { "l" } }, outro = { lines = {} },'
+    .. ' rules = { math = {} }, scores_intros = { "i" },'
+    .. ' advertisement = { jingle = "j", intros = { "i" }, blocks = { { "b" } } }, system = {} }')
+local txt = efirLoadTexts()
+ok('texts.lua загружен', txt ~= nil and txt.intro.lines[1] == 'l')
+
+writeFile(EFIR_WORDS, 'return { "привет", "мир" }')
+local wl = efirLoadWordList(EFIR_WORDS)
+ok('слова загружены верхним регистром', wl ~= nil and wl[1] == 'ПРИВЕТ' and wl[2] == 'МИР',
+   wl and wl[1])
 
 -- ============================================================ ИТОГ =======
 print(string.format('\n%d passed, %d failed', passed, failed))

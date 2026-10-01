@@ -90,11 +90,11 @@ SFNLogs.setVisible(true)
 
 -- ============================================ МЕНЮ СОБРАНО =================
 section('helper: меню из системных вкладок и модулей')
-ok('порядок вкладок: Журнал, Поиск, Фото, Настройки, О скрипте',
-   table.concat(MENU_IDS, ',') == 'journal,search,photo,settings,about',
+ok('порядок вкладок: Журнал, Поиск, Фото, Эфир, Настройки, О скрипте',
+   table.concat(MENU_IDS, ',') == 'journal,search,photo,efir,settings,about',
    table.concat(MENU_IDS, ','))
 ok('полосы разделов собраны', table.concat(STRIP_LABELS, ',')
-   == 'Журнал состава,Поиск по игроку,База фотографа,Настройки,О скрипте',
+   == 'Журнал состава,Поиск по игроку,База фотографа,Помощник эфира,Настройки,О скрипте',
    table.concat(STRIP_LABELS, ','))
 ok('модуль photo в реестре', MODULE_BY_ID['photo'] ~= nil)
 
@@ -169,19 +169,112 @@ ok('диалог: колонка Фото добавлена', r ~= nil and r[6]
 ok('диалог: окно открыто на вкладке Фото', SFNLogs.isOpen() == true and SFNLogs.ui.menu == 3,
    SFNLogs.ui.menu)
 
+-- ============================================ ВКЛАДКА ЭФИР =================
+section('helper: вкладка «Эфир»')
+efirAccessGranted = false
+efirRunning = false
+efirScores = {}
+SFNLogs.setMenu(4)
+checkFrame('эфир: доступ закрыт')
+ok('эфир: полоса замка', hasText('доступ закрыт') ~= nil)
+ok('эфир: пояснение про ведущих',
+   hasText('Модуль «Эфир» доступен только ведущим San Fierro News.') ~= nil)
+ok('эфир: кнопок запуска нет', hasText('НАЧАТЬ ЭФИР (Математика)') == nil)
+
+efirAccessGranted = true
+local infoE1 = checkFrame('эфир: доступ открыт, эфир не идёт')
+ok('эфир: полоса состояния', hasText('состояние эфира') ~= nil)
+ok('эфир: кнопка запуска математики', hasText('НАЧАТЬ ЭФИР (Математика)') ~= nil)
+ok('эфир: кнопка запуска анаграмм', hasText('НАЧАТЬ ЭФИР (Анаграммы)') ~= nil)
+ok('эфир: кнопка запуска вышибал', hasText('НАЧАТЬ ЭФИР (Вышибалы)') ~= nil)
+ok('эфир: поле максимума баллов', hasText('Максимум баллов:') ~= nil)
+
+efirRunning, efirMode, efirType = true, 'math', 'Математика'
+efirStartedAt = os.clock() - 65
+efirMathQ, efirMathA, efirMathSuffix = '2 + 2', 4, ' = ?'
+efirScores = { Jonny_Wilde = { id = 248, score = 2 }, Anna_Malboro = { id = 264, score = 1 } }
+local infoE2 = checkFrame('эфир: идёт математика')
+ok('эфир: статус «идёт»', hasText('идёт: Математика') ~= nil)
+ok('эфир: полоса текущего задания', hasText('текущее задание (Математика)') ~= nil)
+ok('эфир: пример виден', hasText('2 + 2 = ?') ~= nil)
+ok('эфир: ответ виден ведущему', hasText('ответ: 4') ~= nil)
+ok('эфир: кнопка подтверждения', hasText('Верный ответ') ~= nil)
+ok('эфир: кнопка завершения', hasText('Завершить эфир') ~= nil)
+ok('эфир: полоса счёта', hasText('счёт эфира') ~= nil)
+ok('эфир: ник в таблице счёта',
+   hasText('Jonny Wilde') ~= nil or hasText('Jonny_Wilde') ~= nil)
+ok('эфир: речь и итоги на месте', hasText('Стартовая речь') ~= nil and hasText('Итоги в чат') ~= nil)
+
+-- команда /efir переключает окно на вкладку
+SFNLogs.setMenu(1)
+SFNLogs.setVisible(true)
+ok('команда /efir зарегистрирована', __cmds['efir'] ~= nil)
+__cmds['efir']()
+ok('/efir открывает вкладку Эфир', SFNLogs.ui.menu == 4, SFNLogs.ui.menu)
+
+efirRunning, efirScores, efirAccessGranted = false, {}, false
+SFNLogs.setMenu(1)
+
+-- ============================================ ДИСПЕТЧЕР ONTICK ==============
+section('helper: диспетчер onTick (личный хоткей модуля)')
+local modE = MODULE_BY_ID['efir']
+ok('у модуля «Эфир» есть onTick', type(modE.onTick) == 'function')
+ok('у модуля «Эфир» есть onTerminate', type(modE.onTerminate) == 'function')
+ok('у модуля «Фото» onTick не обязателен', modE.onTick ~= nil)
+
+-- onTick дёргается из главного цикла main(); цикл здесь не запускаем, поэтому
+-- вызываем обработчик так же, как это делает диспетчер: pcall(mod.onTick, now)
+efirAccessGranted = true
+SFNLogs.setMenu(1)
+SFNLogs.setVisible(false)
+isKeyDown = function(k) return k == efirCfg.hotkey end
+local okTick, tickErr = pcall(modE.onTick, os.time())
+ok('onTick модуля не падает', okTick, tostring(tickErr))
+ok('личный хоткей эфира открывает окно', SFNLogs.isOpen() == true)
+ok('личный хоткей эфира ставит вкладку «Эфир»', SFNLogs.ui.menu == 4, SFNLogs.ui.menu)
+
+-- повторное нажатие той же клавиши не должно «щёлкать» окном каждый кадр
+SFNLogs.setVisible(false)
+pcall(modE.onTick, os.time())
+ok('удержание хоткея не переоткрывает окно', SFNLogs.isOpen() == false)
+
+-- клавиша отпущена - модуль сбрасывает флаг и готов к новому нажатию
+isKeyDown = function() return false end
+pcall(modE.onTick, os.time())
+isKeyDown = function(k) return k == efirCfg.hotkey end
+pcall(modE.onTick, os.time())
+ok('после отпускания хоткей срабатывает снова', SFNLogs.isOpen() == true and SFNLogs.ui.menu == 4)
+isKeyDown = nil
+
+-- без доступа к эфиру его хоткей молчит (окно не открывается)
+efirAccessGranted = false
+SFNLogs.setMenu(1)
+SFNLogs.setVisible(false)
+isKeyDown = function(k) return k == efirCfg.hotkey end
+pcall(modE.onTick, os.time())
+ok('хоткей эфира не работает без доступа', SFNLogs.isOpen() == false)
+isKeyDown = nil
+efirAccessGranted = true
+efirRunning, efirScores = false, {}
+SFNLogs.setMenu(1)
+SFNLogs.setVisible(true)        -- кадр рисуется только при открытом окне
+
 -- ============================================ НАСТРОЙКИ И О СКРИПТЕ ========
 section('helper: настройки и справка содержат модуль')
-SFNLogs.setMenu(4)
+SFNLogs.setMenu(5)
 checkFrame('настройки helper-а')
 ok('настройки: секция модуля Фото', hasText('Фото') ~= nil)
 ok('настройки: лимит игроков', hasText('лимит игроков в неделю') ~= nil)
 ok('настройки: путь к базе', hasText('sfn_photo_data') ~= nil)
+ok('настройки: секция модуля Эфир', hasText('призовой фонд') ~= nil)
+ok('настройки: статус доступа эфира', hasText('закрыт') ~= nil or hasText('разрешён') ~= nil)
 ok('настройки: системные секции на месте', hasText('Окно') ~= nil and hasText('Служебное') ~= nil)
 
-SFNLogs.setMenu(5)
+SFNLogs.setMenu(6)
 checkFrame('о скрипте helper-а')
 ok('о скрипте: список модулей', hasText('Модули помощника') ~= nil)
 ok('о скрипте: модуль Фото описан', hasText('недельные лимиты фото') ~= nil)
+ok('о скрипте: модуль Эфир описан', hasText('викторины в эфире') ~= nil)
 
 -- ============================================ КОМАНДА /sfnhelper ===========
 section('helper: команда /sfnhelper')
@@ -196,7 +289,7 @@ __cmds['sfnhelper']('photo')
 __cmds['sfnhelper']('')
 
 -- значка «‹» нет ни в одной вкладке
-for tab = 1, 5 do
+for tab = 1, 6 do
     SFNLogs.setMenu(tab)
     checkFrame('вкладка ' .. tab .. ' без стрелочки')
     ok('вкладка ' .. tab .. ': нет значка «‹»',

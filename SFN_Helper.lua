@@ -1977,6 +1977,661 @@ end
 
 end
 
+do
+-- ================================================== МОДУЛЬ «ЭФИР» (PURE) ===
+-- Перенос sfn_efir_helper.lua v7.0.1: викторины в эфире (математика,
+-- анаграммы, вышибалы), счёт баллов, половые формы для русских фраз,
+-- доступ по SHA-256 хешу ника. Данные - в прежней папке sfn_data\.
+--
+-- Отличия от оригинала по решению редакции:
+--   * собственный автоапдейтер из репозитория sfn-efir удалён - обновления
+--     даёт ядро Helper-а (иначе он подменял бы файл Helper-а старым кодом);
+--   * доступ закрывает не всё окно, а вкладку «Эфир» (панель с замком):
+--     в общем окне другие модули обязаны работать у всех;
+--   * светлая/своя тема и отдельный хоткей упразднены: общий дизайн, общий
+--     хоткей окна; личный хоткей модуля открывает окно на вкладке «Эфир».
+
+-- bit-шим для тестов: в игре (LuaJIT) есть библиотека bit, в Lua 5.4 её нет
+local bit
+if type(_G.bit) == 'table' and _G.bit.band then
+    bit = _G.bit
+else
+    local function mask32(v) return v & 0xFFFFFFFF end
+    -- variadic, как в LuaJIT: bit.bxor(a, b, c) и bit.bor(a, b, c, d)
+    local function fold(op, a, b, ...)
+        local r = op(mask32(a), mask32(b))
+        if select('#', ...) == 0 then return r end
+        return fold(op, r, ...)
+    end
+    local function and2(a, b) return a & b end
+    local function xor2(a, b) return a ~ b end
+    local function or2(a, b) return a | b end
+    bit = {
+        band   = function(a, b, ...) return fold(and2, a, b, ...) end,
+        bxor   = function(a, b, ...) return fold(xor2, a, b, ...) end,
+        bor    = function(a, b, ...) return fold(or2, a, b, ...) end,
+        bnot   = function(a) return mask32(~a) end,
+        ror    = function(a, n) a = mask32(a) return mask32((a >> n) | (a << (32 - n))) end,
+        lshift = function(a, n) return mask32(a << n) end,
+        rshift = function(a, n) return mask32(a >> n) end,
+        tobit  = function(a) return mask32(a) end,
+        tohex  = function(v, n) return string.format('%0' .. (n or 8) .. 'x', mask32(v)) end,
+    }
+end
+
+-- SHA-256: реализация перенесена дословно из sfn_efir_helper.lua v7.0.1 -
+-- именно ею посчитаны хеши доступа в списке выше, менять алгоритм нельзя.
+local sha256 = (function()
+    local band    = bit.band
+    local bxor    = bit.bxor
+    local bor     = bit.bor
+    local bnot    = bit.bnot
+    local rrotate = bit.ror
+    local lshift  = bit.lshift
+    local rshift  = bit.rshift
+    local tobit   = bit.tobit
+
+    local K = {
+        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+    }
+
+    local function preprocess(msg)
+        local len = #msg
+        local bitlen = len * 8
+        msg = msg .. "\128"
+        while (#msg % 64) ~= 56 do msg = msg .. "\0" end
+        msg = msg .. "\0\0\0\0" .. string.char(
+            band(rshift(bitlen, 24), 0xff),
+            band(rshift(bitlen, 16), 0xff),
+            band(rshift(bitlen,  8), 0xff),
+            band(bitlen, 0xff))
+        return msg
+    end
+
+    local function hash(msg)
+        msg = preprocess(msg)
+        local H = {
+            0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+            0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+        }
+        for i = 1, #msg, 64 do
+            local w = {}
+            for j = 0, 15 do
+                local k = i + j * 4
+                w[j] = bor(
+                    lshift(msg:byte(k), 24),
+                    lshift(msg:byte(k + 1), 16),
+                    lshift(msg:byte(k + 2), 8),
+                    msg:byte(k + 3))
+            end
+            for j = 16, 63 do
+                local s0 = bxor(rrotate(w[j-15], 7), rrotate(w[j-15], 18), rshift(w[j-15], 3))
+                local s1 = bxor(rrotate(w[j-2], 17), rrotate(w[j-2], 19), rshift(w[j-2], 10))
+                w[j] = tobit(w[j-16] + s0 + w[j-7] + s1)
+            end
+            local a, b, c, d, e, f, g, h = H[1], H[2], H[3], H[4], H[5], H[6], H[7], H[8]
+            for j = 0, 63 do
+                local S1 = bxor(rrotate(e, 6), rrotate(e, 11), rrotate(e, 25))
+                local ch = bxor(band(e, f), band(bnot(e), g))
+                local t1 = tobit(h + S1 + ch + K[j + 1] + w[j])
+                local S0 = bxor(rrotate(a, 2), rrotate(a, 13), rrotate(a, 22))
+                local maj = bxor(band(a, b), band(a, c), band(b, c))
+                local t2 = tobit(S0 + maj)
+                h = g; g = f; f = e
+                e = tobit(d + t1)
+                d = c; c = b; b = a
+                a = tobit(t1 + t2)
+            end
+            H[1] = tobit(H[1] + a); H[2] = tobit(H[2] + b)
+            H[3] = tobit(H[3] + c); H[4] = tobit(H[4] + d)
+            H[5] = tobit(H[5] + e); H[6] = tobit(H[6] + f)
+            H[7] = tobit(H[7] + g); H[8] = tobit(H[8] + h)
+        end
+        return bit.tohex(H[1], 8) .. bit.tohex(H[2], 8) ..
+               bit.tohex(H[3], 8) .. bit.tohex(H[4], 8) ..
+               bit.tohex(H[5], 8) .. bit.tohex(H[6], 8) ..
+               bit.tohex(H[7], 8) .. bit.tohex(H[8], 8)
+    end
+
+    return { hash = hash }
+end)()
+
+function efirSha256(msg) return sha256.hash(msg) end
+
+EFIR_AUTH_SALT = 'SFN_2026_SECURE_x7p9nq2m'
+EFIR_ADMIN_HASHES = {
+    '548213b64ed49aaf6e51ff5f263e266665c8b6623ea8a7c05d331605d3728e82',
+}
+EFIR_ALLOWED_HASHES = {
+    '96c38190233366a49a2cfbec525f0d8a8205a34bd428b1ff70c50bdf26842c91',
+}
+
+-- данные и настройки: пути старого скрипта (совместимость)
+EFIR_DIR      = (getWorkingDirectory and getWorkingDirectory() or '.') .. '\\sfn_data'
+EFIR_CFG_PATH = EFIR_DIR .. '\\config.json'
+EFIR_SCORES   = EFIR_DIR .. '\\scores.json'
+EFIR_GENDERS  = EFIR_DIR .. '\\genders.json'
+EFIR_TEXTS    = EFIR_DIR .. '\\texts.lua'
+EFIR_ANAGRAMS = EFIR_DIR .. '\\anagrams.lua'
+EFIR_WORDS    = EFIR_DIR .. '\\words.lua'
+
+efirCfg = {
+    hotkey = 0x7A,             -- F11: открыть окно на вкладке «Эфир»
+    max_score = 20,
+    prize_fund = 500000,
+    price_per_minute = 6000,
+    screenshot_interval = 600,
+    speech_delay = 5,
+}
+efirScores = {}
+efirGenders = {}
+efirTexts = nil
+efirAnagrams = {}
+efirWords = {}
+efirRunning = false
+efirStartedAt = 0              -- os.clock()
+efirScreenshots = 0
+efirLastShotAt = 0
+efirShotNotified = false
+efirMode = 'math'
+efirType = 'Математика'
+efirMathQ, efirMathA, efirMathSuffix = '', 0, ' = ?'
+efirLastMathType = nil
+efirAnagramWord, efirAnagramShuffled = '', ''
+efirVyshWord, efirVyshMasked = '', ''
+efirFirstAnswer = nil
+efirAccessGranted = false
+efirAccessChecked = false
+
+EFIR_MATH_TYPES = { 'classic', 'addsub', 'multiply', 'divide', 'brackets', 'mixed', 'equation' }
+EFIR_CHAT_MAX = 120
+
+-- --------------------------------------------------------- строки/формы ---
+
+local EFIR_LU, EFIR_UL = {}, {}
+for i = 192, 223 do
+    local A, a = string.char(i), string.char(i + 32)
+    EFIR_UL[A] = a
+    EFIR_LU[a] = A
+end
+EFIR_LU[string.char(184)] = string.char(168)   -- ё -> Ё
+EFIR_UL[string.char(168)] = string.char(184)   -- Ё -> ё
+
+function efirCp1251Upper(s)
+    if not s then return s end
+    local out = {}
+    for i = 1, #s do
+        local ch = s:sub(i, i)
+        out[i] = EFIR_LU[ch] or ch:upper()
+    end
+    return table.concat(out)
+end
+
+function efirNormalizeAnswer(s)
+    if not s then return '' end
+    s = efirCp1251Upper(s)
+    s = s:gsub('[%.%!%?]$', '')
+    -- Ё в Е не сворачиваем: в оригинале gsub("Ё", "Е") был UTF-8-литералом по
+    -- CP1251-строке и не срабатывал; сохраняем то же поведение (ё остаётся ё).
+    s = s:gsub('%s+', '')
+    return s
+end
+
+function efirFormatNick(nick) return (tostring(nick or '')):gsub('_', ' ') end
+
+function efirFormatTime(seconds)
+    local h = math.floor(seconds / 3600)
+    local m = math.floor((seconds % 3600) / 60)
+    local s = math.floor(seconds % 60)
+    return string.format('%02d:%02d:%02d', h, m, s)
+end
+
+function efirPluralScore(n)
+    local m10, m100 = n % 10, n % 100
+    if m100 >= 11 and m100 <= 14 then return 'баллов' end
+    if m10 == 1 then return 'балл' end
+    if m10 >= 2 and m10 <= 4 then return 'балла' end
+    return 'баллов'
+end
+
+function efirGenderOf(nick)
+    if not nick then return 'm' end
+    return efirGenders[nick] or 'm'
+end
+
+function efirGenderForms(nick)
+    if efirGenderOf(nick) == 'f' then
+        return { heShe = 'она', hisHer = 'у неё', first = 'первая', gave = 'дала', won = 'победила' }
+    end
+    return { heShe = 'он', hisHer = 'у него', first = 'первый', gave = 'дал', won = 'победил' }
+end
+
+function efirApplyPlaceholders(str, extra)
+    if not str then return '' end
+    extra = extra or {}
+    local r = str
+    r = r:gsub('{NICK}', efirFormatNick(extra.nick or 'ведущий'))
+    r = r:gsub('{FRACTION}', 'San Fierro News')
+    r = r:gsub('{RANK}', 'Ведущий')
+    r = r:gsub('{TYPE}', tostring(efirType or 'Математика'))
+    r = r:gsub('{N}', tostring(efirScreenshots or 0))
+    r = r:gsub('{ANSWER}', tostring(extra.answer or '?'))
+    r = r:gsub('{MAX_SCORE}', tostring(efirCfg.max_score))
+    r = r:gsub('{PRIZE_FUND}', tostring(efirCfg.prize_fund))
+    return r
+end
+
+function efirCapitalizeWord(word)
+    if not word or word == '' then return '' end
+    local cp = utf8ToCp1251(word)
+    local first = efirCp1251Upper(cp:sub(1, 1))
+    local rest = {}
+    for i = 2, #cp do
+        local ch = cp:sub(i, i)
+        rest[#rest + 1] = EFIR_UL[ch] or ch
+    end
+    return cp1251ToUtf8(first .. table.concat(rest))
+end
+
+function efirFormatAnagramDots(word)
+    if not word or word == '' then return '' end
+    local chars, i = {}, 1
+    while i <= #word do
+        local b = word:byte(i)
+        local len = 1
+        if b >= 0xF0 then len = 4 elseif b >= 0xE0 then len = 3 elseif b >= 0xC0 then len = 2 end
+        chars[#chars + 1] = word:sub(i, i + len - 1)
+        i = i + len
+    end
+    return table.concat(chars, '.')
+end
+
+-- ------------------------------------------------------------- доступ -----
+
+function efirIsAdmin(nick)
+    if not nick or nick == '' or nick == 'Unknown' then return false end
+    local h = efirSha256(nick .. EFIR_AUTH_SALT)
+    for _, v in ipairs(EFIR_ADMIN_HASHES) do if h == v then return true end end
+    return false
+end
+
+function efirIsAllowed(nick)
+    if not nick or nick == '' or nick == 'Unknown' then return false end
+    local h = efirSha256(nick .. EFIR_AUTH_SALT)
+    for _, v in ipairs(EFIR_ALLOWED_HASHES) do if h == v then return true end end
+    return false
+end
+
+-- -------------------------------------------------------- генераторы ------
+
+local function genClassic()
+    local n1, n2 = math.random(10, 50), math.random(10, 50)
+    local n3, n4 = math.random(1, 10), math.random(1, 10)
+    local ops = { '+', '-' }
+    local op1, op2 = ops[math.random(2)], ops[math.random(2)]
+    local q = n1 .. ' ' .. op1 .. ' ' .. n2 .. ' ' .. op2 .. ' ' .. n3 .. ' * ' .. n4
+    local mult = n3 * n4
+    local res = (op1 == '+') and (n1 + n2) or (n1 - n2)
+    if op2 == '+' then res = res + mult else res = res - mult end
+    return q, res
+end
+local function genAddSub()
+    local a, b = math.random(20, 99), math.random(10, 60)
+    if math.random(2) == 1 then return a .. ' + ' .. b, a + b
+    else return a .. ' - ' .. b, a - b end
+end
+local function genMultiply()
+    local a, b = math.random(3, 15), math.random(3, 15)
+    return a .. ' * ' .. b, a * b
+end
+local function genDivide()
+    local b, res = math.random(2, 12), math.random(3, 15)
+    return b * res .. ' / ' .. b, res
+end
+local function genBrackets()
+    local a, b, c = math.random(5, 30), math.random(1, 15), math.random(2, 9)
+    if math.random(2) == 1 then return '(' .. a .. ' + ' .. b .. ') * ' .. c, (a + b) * c end
+    if a < b then a, b = b, a end
+    return '(' .. a .. ' - ' .. b .. ') * ' .. c, (a - b) * c
+end
+local function genMixed()
+    local a, b = math.random(2, 12), math.random(2, 12)
+    local c = math.random(1, a * b - 1)
+    return a .. ' * ' .. b .. ' - ' .. c, a * b - c
+end
+local function genEquation()
+    local v = math.random(5)
+    if v == 1 then
+        local x, a = math.random(2, 50), math.random(2, 50)
+        return 'x + ' .. a .. ' = ' .. (x + a), x, ', x = ?'
+    elseif v == 2 then
+        local a, x = math.random(2, 30), math.random(32, 80)
+        return 'x - ' .. a .. ' = ' .. (x - a), x, ', x = ?'
+    elseif v == 3 then
+        local a = math.random(20, 80)
+        local x = math.random(1, a - 1)
+        return a .. ' - x = ' .. (a - x), x, ', x = ?'
+    elseif v == 4 then
+        local a, x = math.random(2, 12), math.random(2, 12)
+        return a .. ' * x = ' .. (a * x), x, ', x = ?'
+    end
+    local a, b = math.random(2, 10), math.random(2, 15)
+    return 'x / ' .. a .. ' = ' .. b, a * b, ', x = ?'
+end
+
+function efirGenerateMath()
+    local tp
+    repeat tp = EFIR_MATH_TYPES[math.random(#EFIR_MATH_TYPES)]
+    until tp ~= efirLastMathType or #EFIR_MATH_TYPES == 1
+    efirLastMathType = tp
+    local q, a, suffix
+    if tp == 'classic' then q, a = genClassic()
+    elseif tp == 'addsub' then q, a = genAddSub()
+    elseif tp == 'multiply' then q, a = genMultiply()
+    elseif tp == 'divide' then q, a = genDivide()
+    elseif tp == 'brackets' then q, a = genBrackets()
+    elseif tp == 'mixed' then q, a = genMixed()
+    else q, a, suffix = genEquation() end
+    efirMathQ, efirMathA = q, a
+    efirMathSuffix = suffix or ' = ?'
+    efirFirstAnswer = nil
+    return q, a, efirMathSuffix
+end
+
+function efirSplitUtf8(str)
+    local chars, i = {}, 1
+    while i <= #str do
+        local b = str:byte(i)
+        local len = 1
+        if b >= 0xF0 then len = 4 elseif b >= 0xE0 then len = 3 elseif b >= 0xC0 then len = 2 end
+        chars[#chars + 1] = str:sub(i, i + len - 1)
+        i = i + len
+    end
+    return chars
+end
+
+function efirShuffleWord(word)
+    local chars = efirSplitUtf8(word)
+    for i = #chars, 2, -1 do
+        local j = math.random(i)
+        chars[i], chars[j] = chars[j], chars[i]
+    end
+    return table.concat(chars)
+end
+
+function efirGenerateAnagram()
+    if #efirAnagrams == 0 then return nil end
+    efirAnagramWord = efirAnagrams[math.random(#efirAnagrams)]
+    local shuffled, attempts = efirAnagramWord, 0
+    repeat
+        shuffled = efirShuffleWord(efirAnagramWord)
+        attempts = attempts + 1
+    until shuffled ~= efirAnagramWord or attempts > 20
+    efirAnagramShuffled = shuffled
+    efirFirstAnswer = nil
+    return efirAnagramWord, shuffled
+end
+
+function efirMaskWord(word)
+    local chars = efirSplitUtf8(word)
+    local total = #chars
+    if total < 3 then return word end
+    local ratio = 0.40 + math.random() * 0.15
+    local hide = math.floor(total * ratio)
+    hide = math.max(hide, total >= 8 and 4 or 3)
+    hide = math.min(hide, total - 1)
+    local cand = {}
+    for i = 2, total - 2 do cand[#cand + 1] = i end
+    if #cand < hide then
+        cand = {}
+        for i = 1, total do cand[#cand + 1] = i end
+    end
+    for i = #cand, 2, -1 do
+        local j = math.random(i)
+        cand[i], cand[j] = cand[j], cand[i]
+    end
+    local maskSet = {}
+    for i = 1, math.min(hide, #cand) do maskSet[cand[i]] = true end
+    local ph = (math.random(2) == 1) and '*' or '_'
+    local res = {}
+    for i = 1, total do
+        res[i] = maskSet[i] and ph or chars[i]
+    end
+    return table.concat(res)
+end
+
+function efirGenerateVyshibaly()
+    if #efirWords == 0 then return nil end
+    efirVyshWord = efirWords[math.random(#efirWords)]
+    local masked, attempts = efirVyshWord, 0
+    repeat
+        masked = efirMaskWord(efirVyshWord)
+        attempts = attempts + 1
+    until masked ~= efirVyshWord or attempts > 20
+    efirVyshMasked = masked
+    efirFirstAnswer = nil
+    return efirVyshWord, masked
+end
+
+-- --------------------------------------------------- разбор ответов -------
+
+EFIR_P_NICK_ID  = '([%a][%w_]+)%[(%d+)%]'
+EFIR_P_AIR      = '%[[^%]]+%]%s*(%d+)%.'
+EFIR_P_AIR_SGN  = '%[[^%]]+%]%s*(%-?%s*%d+)%.'
+EFIR_P_ANAGRAM  = '%[[^%]]+%]%s*([^%[%]%.]+)%.'
+
+-- Текст сообщения (UTF-8). Возвращает true, если это ответ в эфир; первый
+-- верный ответ запоминается до подтверждения ведущим («Верный ответ»).
+function efirTryParseAnswer(utf8text)
+    if not utf8text then return false end
+    local bufNick, bufId = utf8text:match(EFIR_P_NICK_ID)
+    local cleaned = utf8text:gsub('%[%d+:%d+:%d+%]', ''):gsub('%[%d+%]', '')
+    local pattern = (efirMode == 'anagram' or efirMode == 'vyshibaly')
+        and EFIR_P_ANAGRAM or EFIR_P_AIR_SGN
+    local answer = cleaned:match(pattern)
+    if not answer or not bufNick then return false end
+    if not efirRunning then return true end
+    if efirMode == 'math' then
+        -- скобки обязательны: gsub возвращает два значения, второе (число
+        -- замен) попало бы в tonumber как система счисления (баг оригинала)
+        local num = tonumber((answer:gsub('%s+', '')))
+        if num and num == efirMathA and not efirFirstAnswer then
+            efirFirstAnswer = { nick = bufNick, id = tonumber(bufId), answer = answer:gsub('%s+', '') }
+        end
+    elseif efirMode == 'anagram' then
+        if efirNormalizeAnswer(utf8ToCp1251(answer)) == efirNormalizeAnswer(utf8ToCp1251(efirAnagramWord))
+           and not efirFirstAnswer then
+            efirFirstAnswer = { nick = bufNick, id = tonumber(bufId), answer = answer }
+        end
+    elseif efirMode == 'vyshibaly' then
+        if efirNormalizeAnswer(utf8ToCp1251(answer)) == efirNormalizeAnswer(utf8ToCp1251(efirVyshWord))
+           and not efirFirstAnswer then
+            efirFirstAnswer = { nick = bufNick, id = tonumber(bufId), answer = answer }
+        end
+    end
+    return true
+end
+
+-- Зачёт первого ответа: +1 балл, фраза с половыми формами, событие показа
+-- ответа через 5 с. Возвращает события {chat=...}, {save='scores'}, {reveal=...}
+function efirApplyCorrect(nick, id)
+    local ev = {}
+    if not efirScores[nick] then efirScores[nick] = { id = id or 0, score = 0 } end
+    efirScores[nick].score = efirScores[nick].score + 1
+    efirScores[nick].id = id or efirScores[nick].id
+    ev[#ev + 1] = { save = 'scores' }
+    local sc = efirScores[nick].score
+    local f = efirGenderForms(nick)
+    ev[#ev + 1] = { chat = string.format('%s %s %s правильный ответ и %s %d %s',
+        efirFormatNick(nick), f.first, f.gave, f.hisHer, sc, efirPluralScore(sc)) }
+    efirFirstAnswer = nil
+    local reveal
+    if efirMode == 'anagram' then reveal = efirAnagramWord
+    elseif efirMode == 'vyshibaly' then reveal = efirVyshWord
+    else reveal = tostring(efirMathA) end
+    ev[#ev + 1] = { reveal = reveal, delay = 5 }
+    return ev
+end
+
+-- Топ с группировкой по баллам: возвращает группы {score, rank, nicks={...}}
+function efirTopScoreGroups()
+    local sorted = {}
+    for nick, info in pairs(efirScores) do
+        sorted[#sorted + 1] = { nick = nick, id = info.id, score = info.score }
+    end
+    table.sort(sorted, function(a, b)
+        if a.score == b.score then return a.nick < b.nick end
+        return a.score > b.score
+    end)
+    local groups, cur = {}, nil
+    for _, item in ipairs(sorted) do
+        if not cur or cur.score ~= item.score then
+            cur = { score = item.score, rank = #groups + 1, nicks = { item.nick } }
+            groups[#groups + 1] = cur
+        else
+            cur.nicks[#cur.nicks + 1] = item.nick
+        end
+    end
+    return groups
+end
+
+-- Упаковка строк в сообщения чата не длиннее EFIR_CHAT_MAX (поведение
+-- sendPacked из оригинала): возвращает список готовых сообщений.
+function efirPackMessages(items, prefixFirst, prefixRest)
+    prefixFirst = prefixFirst or ''
+    prefixRest = prefixRest or prefixFirst
+    local out, idx, first = {}, 1, true
+    while idx <= #items do
+        local prefix = first and prefixFirst or prefixRest
+        if #prefix + #items[idx] > EFIR_CHAT_MAX and #prefix > #prefixRest then
+            prefix = prefixRest
+        end
+        local cur = prefix .. items[idx]
+        local j = idx + 1
+        while j <= #items do
+            local cand = cur .. ', ' .. items[j]
+            if #cand > EFIR_CHAT_MAX then break end
+            cur = cand
+            j = j + 1
+        end
+        if cur:sub(-1) ~= '.' then cur = cur .. '.' end
+        out[#out + 1] = cur
+        idx = j
+        first = false
+    end
+    return out
+end
+
+-- Тексты речей и базы слов: loadfile есть и в игре, и в тестах
+function efirDefaultTexts()
+    return {
+        intro = { jingle = '...', lines = { '...' } },
+        outro = { lines = { '...' } },
+        rules = { math = { '...' }, anagram = { '...' }, vyshibaly = { '...' } },
+        scores_intros = { '...' },
+        advertisement = { jingle = '...', intros = { '...' }, blocks = { { '...' } } },
+        system = {
+            loaded_title    = '========== San Fierro News ==========',
+            loaded_message  = 'SFN Helper — скрипт успешно запущен!',
+            loaded_greeting = 'Приветствую, {NICK}!',
+            loaded_help     = 'Чтобы открыть меню — нажми F9 или введи /sfnhelper',
+            loaded_bottom   = '=====================================',
+            menu_opened = '[SFN] Меню открыто',
+            menu_closed = '[SFN] Меню закрыто',
+            screenshot_reminder = '[SFN] Пора сделать скриншот!',
+            screenshot_done = '[SFN] Скриншот #{N} сделан',
+            base_cleared = '[SFN] База баллов очищена',
+            no_scores = '[SFN] Пока никто не набрал баллов',
+            no_answer = '[SFN] Нет верного ответа для начисления',
+            no_anagram_words = '[SFN] База слов для анаграмм пуста.',
+        },
+    }
+end
+
+function efirLoadTexts()
+    local f = loadfile and loadfile(EFIR_TEXTS)
+    if not f then return nil end
+    local ok, res = pcall(f)
+    if not ok or type(res) ~= 'table' or not res.intro or not res.intro.lines then return nil end
+    return res
+end
+
+function efirLoadWordList(path)
+    local f = loadfile and loadfile(path)
+    if not f then return nil end
+    local ok, res = pcall(f)
+    if not ok or type(res) ~= 'table' then return nil end
+    local words = {}
+    for _, w in ipairs(res) do
+        if type(w) == 'string' and #w > 0 then
+            -- оригинал хранил слова верхним регистром: cp1251Upper поверх UTF-8
+            words[#words + 1] = cp1251ToUtf8(efirCp1251Upper(utf8ToCp1251(w)))
+        end
+    end
+    return words
+end
+
+-- --- файловый слой эфира: конфиг, баллы, пол ---
+-- (в PURE: тесты проверяют совместимость со старыми json без игры)
+function efirWriteJson(path, tbl)
+    return writeFile(path, json.encode(tbl))
+end
+
+function efirSaveConfig()
+    efirWriteJson(EFIR_CFG_PATH, {
+        hotkey = efirCfg.hotkey, max_score = efirCfg.max_score,
+        prize_fund = efirCfg.prize_fund, price_per_minute = efirCfg.price_per_minute,
+        screenshot_interval = efirCfg.screenshot_interval,
+    })
+end
+
+function efirLoadConfig()
+    local raw = readFile(EFIR_CFG_PATH)
+    if not raw or raw == '' then return end
+    local data = json.decode(raw)
+    if type(data) ~= 'table' then return end
+    if type(data.hotkey) == 'number' then efirCfg.hotkey = math.floor(data.hotkey) end
+    if type(data.max_score) == 'number' then efirCfg.max_score = data.max_score end
+    if type(data.prize_fund) == 'number' then efirCfg.prize_fund = data.prize_fund end
+    if type(data.price_per_minute) == 'number' then efirCfg.price_per_minute = data.price_per_minute end
+    if type(data.screenshot_interval) == 'number' then efirCfg.screenshot_interval = data.screenshot_interval end
+end
+
+function efirSaveScores() efirWriteJson(EFIR_SCORES, efirScores) end
+function efirSaveGenders() efirWriteJson(EFIR_GENDERS, efirGenders) end
+
+function efirLoadScores()
+    local raw = readFile(EFIR_SCORES)
+    if not raw or raw == '' then return end
+    local data = json.decode(raw)
+    if type(data) ~= 'table' then return end
+    for nick, info in pairs(data) do
+        if type(info) == 'table' then
+            efirScores[nick] = { id = tonumber(info.id) or 0, score = tonumber(info.score) or 0 }
+        end
+    end
+end
+
+function efirLoadGenders()
+    local raw = readFile(EFIR_GENDERS)
+    if not raw or raw == '' then return end
+    local data = json.decode(raw)
+    if type(data) ~= 'table' then return end
+    for nick, g in pairs(data) do
+        if g == 'm' or g == 'f' then efirGenders[nick] = g end
+    end
+end
+
+
+end
+
 -- <<< PURE LOGIC END
 
 -- ============================================ ОНЛАЙН-ДАННЫЕ ИГРОКОВ =======
@@ -4467,6 +5122,551 @@ registerModule({
 
 end
 
+do
+-- ============================================ МОДУЛЬ «ЭФИР»: игровой слой ==
+
+local function efirSendChat(msg)
+    if sampSendChat then pcall(sampSendChat, utf8ToCp1251(tostring(msg))) end
+end
+
+local function efirSay(msg) pcall(say, tostring(msg)) end
+
+-- речи идут фоном с паузами: кадр не блокируем, wait только внутри lua_thread
+local function efirSpeakLines(lines, delay)
+    if not lua_thread then return end
+    lua_thread.create(function()
+        for _, line in ipairs(lines or {}) do
+            efirSendChat(efirApplyPlaceholders(line))
+            pcall(wait, (delay or efirCfg.speech_delay) * 1000)
+        end
+    end)
+end
+
+local function efirPlayIntro()
+    local intro = efirTexts and efirTexts.intro or efirDefaultTexts().intro
+    if not lua_thread then return end
+    lua_thread.create(function()
+        efirSendChat(efirApplyPlaceholders(intro.jingle))
+        pcall(wait, efirCfg.speech_delay * 1000)
+        efirSpeakLines(intro.lines)
+    end)
+end
+
+local function efirPlayRules()
+    local rules = efirTexts and efirTexts.rules or efirDefaultTexts().rules
+    local lines
+    if efirMode == 'anagram' then lines = rules.anagram
+    elseif efirMode == 'vyshibaly' then lines = rules.vyshibaly
+    else lines = rules.math end
+    efirSpeakLines(lines)
+end
+
+local function efirPlayOutro()
+    local outro = efirTexts and efirTexts.outro or efirDefaultTexts().outro
+    efirSpeakLines(outro.lines)
+end
+
+local function efirPlayAdvertisement()
+    local adv = (efirTexts and efirTexts.advertisement) or efirDefaultTexts().advertisement
+    if not lua_thread then return end
+    lua_thread.create(function()
+        efirSendChat(adv.jingle); pcall(wait, 5000)
+        efirSendChat(efirApplyPlaceholders(adv.intros[math.random(#adv.intros)])); pcall(wait, 5000)
+        local block = adv.blocks[math.random(#adv.blocks)]
+        for _, line in ipairs(block) do
+            efirSendChat(efirApplyPlaceholders(line)); pcall(wait, 5000)
+        end
+        efirSendChat(adv.jingle)
+    end)
+end
+
+local function efirSendTopScores()
+    local groups = efirTopScoreGroups()
+    if #groups == 0 then
+        efirSay((efirTexts and efirTexts.system.no_scores) or efirDefaultTexts().system.no_scores)
+        return
+    end
+    if not lua_thread then return end
+    lua_thread.create(function()
+        local intros = (efirTexts and efirTexts.scores_intros) or efirDefaultTexts().scores_intros
+        efirSendChat(efirApplyPlaceholders(intros[math.random(#intros)]))
+        pcall(wait, 5000)
+        for i = 1, math.min(#groups, 3) do
+            local g = groups[i]
+            local nicks = {}
+            for _, nick in ipairs(g.nicks) do nicks[#nicks + 1] = efirFormatNick(nick) end
+            local packed = efirPackMessages(nicks, string.format('%d место: ', g.rank), '   ')
+            for _, msg in ipairs(packed) do
+                efirSendChat(msg .. string.format(' (%d %s)', g.score, efirPluralScore(g.score)))
+                pcall(wait, 3000)
+            end
+        end
+    end)
+end
+
+-- Скриншот: спрятали окно -> /time для штампа времени -> F8 (скриншот SAMP) ->
+-- вернули окно. Виртуальные клавиши - под pcall: нет их в редких сборках.
+local function efirMakeScreenshot()
+    local wasOpen = win[0]
+    win[0] = false
+    pcall(wait, 300)
+    if sampSendChat then pcall(sampSendChat, '/time') end
+    pcall(wait, 1500)
+    if setVirtualKeyDown then
+        pcall(setVirtualKeyDown, 0x77, true)
+        pcall(wait, 50)
+        pcall(setVirtualKeyDown, 0x77, false)
+    end
+    pcall(wait, 300)
+    if wasOpen then win[0] = true end
+    efirScreenshots = efirScreenshots + 1
+    efirLastShotAt = os.clock()
+    efirShotNotified = false
+    efirSay(efirApplyPlaceholders(
+        (efirTexts and efirTexts.system.screenshot_done) or efirDefaultTexts().system.screenshot_done))
+end
+
+local function efirGrantAccess(why)
+    if efirAccessGranted then return end
+    efirAccessGranted, efirAccessChecked = true, true
+    local sys = (efirTexts and efirTexts.system) or efirDefaultTexts().system
+    efirSay(sys.loaded_title)
+    efirSay(sys.loaded_message)
+    efirSay(efirApplyPlaceholders(sys.loaded_greeting, { nick = localNick }))
+    efirSay(sys.loaded_help)
+    efirSay(sys.loaded_bottom)
+    logEvent('эфир: доступ разрешён (' .. tostring(why) .. ')')
+end
+
+local function efirCheckAccess()
+    if efirAccessGranted or efirAccessChecked then return end
+    if not localNick or localNick == '' then return end
+    if efirIsAdmin(localNick) then efirGrantAccess('админ') return end
+    if efirIsAllowed(localNick) then efirGrantAccess('список') return end
+    efirAccessChecked = true
+    logEvent('эфир: доступ запрещён, ника нет в списке')
+    efirSay('{FFAA00}[SFN] У вас нет доступа к модулю «Эфир». Обратитесь к Jonny Wilde.')
+end
+
+local function efirAutoStart(mode)
+    efirMode = mode
+    if mode == 'anagram' then efirType = 'Анаграммы'
+    elseif mode == 'vyshibaly' then efirType = 'Вышибалы'
+    else efirType = 'Математика' end
+    efirFirstAnswer = nil
+    efirShotNotified = false
+    efirScreenshots = 0
+    efirLastShotAt = os.clock()
+    efirRunning = true
+    efirStartedAt = os.clock()
+end
+
+local function efirAutoStop()
+    if not efirRunning then return end
+    local total = os.clock() - efirStartedAt
+    logEvent(string.format('эфир завершён: %s, выплата %d$',
+        efirFormatTime(total), math.floor(total / 60) * efirCfg.price_per_minute))
+    efirRunning = false
+    efirFirstAnswer = nil
+    efirShotNotified = false
+end
+
+-- подтверждение «верный ответ»: пол неизвестен - модалка, известен - зачёт
+local efirGenderPending = nil
+local function efirConfirmCorrect()
+    if not efirFirstAnswer then
+        efirSay((efirTexts and efirTexts.system.no_answer) or efirDefaultTexts().system.no_answer)
+        return
+    end
+    local nick, id = efirFirstAnswer.nick, efirFirstAnswer.id
+    if not efirGenders[nick] then
+        efirGenderPending = { nick = nick, id = id }
+        return
+    end
+    for _, e in ipairs(efirApplyCorrect(nick, id)) do
+        if e.chat then efirSendChat(e.chat) end
+        if e.save then efirSaveScores() end
+        if e.reveal and lua_thread then
+            local rev = e.reveal
+            lua_thread.create(function()
+                pcall(wait, (e.delay or 5) * 1000)
+                local ans = rev
+                if efirMode == 'anagram' or efirMode == 'vyshibaly' then ans = efirCapitalizeWord(ans) end
+                efirSendChat('Верный ответ был: ' .. ans)
+            end)
+        end
+    end
+end
+
+local function efirRunEvents(ev)
+    for _, e in ipairs(ev or {}) do
+        if e.chat then efirSendChat(e.chat) end
+        if e.save == 'scores' then efirSaveScores() end
+        if e.save == 'genders' then efirSaveGenders() end
+    end
+end
+
+local function efirOnServer(color, text)
+    if type(text) ~= 'string' or not efirAccessGranted then return end
+    efirTryParseAnswer(cp1251ToUtf8(text))
+end
+
+local efirHotkeyPrev = false
+local function efirOnTick(now)
+    if not efirAccessChecked and localNick ~= '' then efirCheckAccess() end
+    if not efirAccessGranted then return end
+    -- личный хоткей модуля: открыть окно на вкладке «Эфир»
+    if isKeyDown and isKeyDown(efirCfg.hotkey) then
+        if not efirHotkeyPrev and not (sampIsCursorActive and sampIsCursorActive()) then
+            for i, mid in ipairs(MENU_IDS) do
+                if mid == 'efir' then ui.menu = i; win[0] = true end
+            end
+        end
+        efirHotkeyPrev = true
+    else
+        efirHotkeyPrev = false
+    end
+    -- напоминание о скриншоте
+    if efirRunning and not efirShotNotified
+       and (os.clock() - efirLastShotAt) > efirCfg.screenshot_interval then
+        efirSay((efirTexts and efirTexts.system.screenshot_reminder)
+                or efirDefaultTexts().system.screenshot_reminder)
+        efirShotNotified = true
+    end
+end
+
+local function efirLoad()
+    if doesDirectoryExist and not doesDirectoryExist(EFIR_DIR) then
+        if createDirectory then pcall(createDirectory, EFIR_DIR) end
+    end
+    efirLoadConfig()
+    efirLoadScores()
+    efirLoadGenders()
+    efirTexts = efirLoadTexts() or efirDefaultTexts()
+    local w = efirLoadWordList(EFIR_WORDS)
+    local a = efirLoadWordList(EFIR_ANAGRAMS)
+    efirWords = w or a or {}
+    efirAnagrams = a or w or {}
+    math.randomseed(os.time() + math.floor(os.clock() * 1000000))
+end
+
+local function efirTerminate()
+    pcall(efirSaveScores)
+    pcall(efirSaveGenders)
+end
+
+-- ------------------------------------------------------------- вкладка ----
+
+local EFIR_SCORE_COLS = {
+    { key = 'rank',  head = 'Место', min = 60  },
+    { key = 'nick',  head = 'Игрок', min = 180 },
+    { key = 'score', head = 'Баллы', min = 90  },
+}
+
+local function efirScoreRows()
+    local rows = {}
+    for _, g in ipairs(efirTopScoreGroups()) do
+        for _, nick in ipairs(g.nicks) do
+            rows[#rows + 1] = {
+                rank = tostring(g.rank), nick = nick,
+                score = string.format('%d %s', g.score, efirPluralScore(g.score)),
+            }
+        end
+    end
+    return rows
+end
+
+local function drawEfirTable(rows, remainMax)
+    local dl = winDL()
+    local w = imgui.GetContentRegionAvail().x
+    local cols = EFIR_SCORE_COLS
+    local widths, contentW = fitTableWidths(measureCols(rows, cols), cols, w)
+    local headH = S(20)
+    local hx, hy = cursorXY()
+    local cx = hx
+    for i, c in ipairs(cols) do
+        drawTextCentered(dl, cx, hy + S(3), c.head, C.textFaint, widths[i])
+        cx = cx + widths[i]
+    end
+    hline(dl, hx, hy + headH, math.max(contentW, w), C.border, S(1))
+    advance(headH)
+    local remainH = math.min(#rows * rowH + S(8), remainMax or S(240))
+    if remainH < S(60) then remainH = S(60) end
+    local bx, by = cursorXY()
+    imgui.BeginChild('##efirscores', V(w, remainH), false)
+    pdraw(dl.PushClipRect, dl, V(bx, by - S(1)), V(bx + math.max(contentW, w), by + remainH), true)
+    if #rows == 0 then
+        local ex, ey = cursorXY()
+        drawText(dl, ex + S(6), ey + S(6), 'пока никто не набрал баллов', C.textFaint)
+        advance(lineH + S(12))
+    end
+    for idx, r in ipairs(rows) do
+        local rx, ry = cursorXY()
+        imgui.InvisibleButton('##efirrow' .. idx, V(math.max(contentW, w), rowH))
+        if imgui.IsItemHovered() then
+            fillRect(dl, rx, ry, math.max(contentW, w), rowH, RGBf(0.16, 0.16, 0.17))
+        end
+        local cx2, ty = rx, ry + (rowH - lineH) * 0.5
+        pushFont(fonts.cum)
+        for i, c in ipairs(cols) do
+            local col = C.text
+            if c.key == 'rank' then
+                col = (r.rank == '1' and C.soon) or (r.rank == '2' and C.textDim)
+                   or (r.rank == '3' and C.soon) or C.textFaint
+            end
+            drawTextCentered(dl, cx2 + S(4), ty, fitText(tostring(r[c.key] or ''), widths[i] - S(8)),
+                             col, widths[i] - S(8))
+            cx2 = cx2 + widths[i]
+        end
+        popFont(fonts.cum)
+    end
+    pdraw(dl.PopClipRect, dl)
+    imgui.EndChild()
+end
+
+local efirMaxBuf = imgui.new.int(20)
+local efirPrizeBuf = imgui.new.int(500000)
+
+local function drawEfirBody(w, h, now)
+    local dl = winDL()
+    if not efirAccessGranted then
+        advance(sectionStrip(w, 'доступ закрыт') + S(8))
+        local x, y = cursorXY()
+        drawText(dl, x + S(6), y + S(4), 'Модуль «Эфир» доступен только ведущим San Fierro News.', C.textDim)
+        advance(lineH + S(6))
+        local x2, y2 = cursorXY()
+        drawText(dl, x2 + S(6), y2 + S(4),
+                 'Доступ проверяется по нику один раз при запуске; если вы ведущий —', C.textFaint)
+        advance(lineH + S(4))
+        local x3, y3 = cursorXY()
+        drawText(dl, x3 + S(6), y3 + S(4), 'обратитесь к Jonny Wilde, чтобы ник добавили в список.', C.textFaint)
+        advance(lineH + S(10))
+        local x4, y4 = cursorXY()
+        drawTextClipped(dl, x4 + S(6), y4 + S(4),
+                        'ваш ник: ' .. (localNick ~= '' and localNick or 'ещё не определён')
+                        .. '   (проверка: ' .. (efirAccessChecked and 'выполнена' or 'ожидает ника') .. ')',
+                        C.textFaint, w - S(12))
+        return
+    end
+
+    advance(sectionStrip(w, 'состояние эфира') + S(6))
+    local st = {
+        { 'эфир', efirRunning and ('идёт: ' .. efirType) or 'не идёт',
+          efirRunning and C.ready or C.textDim },
+        { 'время', efirRunning and efirFormatTime(now and (os.clock() - efirStartedAt) or 0) or '--:--:--',
+          efirRunning and C.text or C.textFaint },
+        { 'выплата', efirRunning
+            and tostring(math.floor((os.clock() - efirStartedAt) / 60) * efirCfg.price_per_minute) .. '$'
+            or '0$', efirRunning and C.soon or C.textFaint },
+        { 'скриншотов', tostring(efirScreenshots), C.info },
+    }
+    for i, r in ipairs(st) do
+        local x, y = anchoredRow('efst' .. i, lineH + S(10))
+        drawTextClipped(dl, x + S(6), y + S(5), r[1], C.textDim, w * 0.4)
+        local vFit = fitText(r[2], w * 0.55)
+        drawText(dl, x + w - textW(vFit) - S(6), y + S(5), vFit, r[3])
+        hline(dl, x + S(6), y + lineH + S(10), w - S(12), C.lineSoft, S(1))
+    end
+    advance(S(10))
+
+    if not efirRunning then
+        advance(sectionStrip(w, 'настройки и запуск') + S(6))
+        local x1, y1 = anchoredRow('efmax', frameH)
+        drawText(dl, x1 + S(2), y1 + S(5), 'Максимум баллов:', C.textDim)
+        sameRow(0)
+        imgui.Dummy(V(math.max(S(2), textW('Максимум баллов:') + S(12) - 1), 1))
+        sameRow(0)
+        efirMaxBuf[0] = efirCfg.max_score
+        imgui.PushStyleColor(imgui.Col.FrameBg, C.frame)
+        imgui.PushStyleColor(imgui.Col.Text, C.text)
+        imgui.SetNextItemWidth(S(90))
+        if imgui.InputInt('##efmax', efirMaxBuf, 0) then
+            local v = efirMaxBuf[0]
+            if v >= 1 and v <= 999 then efirCfg.max_score = v; efirSaveConfig() end
+        end
+        imgui.PopStyleColor(2)
+        local x2, y2 = anchoredRow('efprize', frameH)
+        drawText(dl, x2 + S(2), y2 + S(5), 'Призовой фонд:', C.textDim)
+        sameRow(0)
+        imgui.Dummy(V(math.max(S(2), textW('Призовой фонд:') + S(12) - 1), 1))
+        sameRow(0)
+        efirPrizeBuf[0] = efirCfg.prize_fund
+        imgui.PushStyleColor(imgui.Col.FrameBg, C.frame)
+        imgui.PushStyleColor(imgui.Col.Text, C.text)
+        imgui.SetNextItemWidth(S(120))
+        if imgui.InputInt('##efprize', efirPrizeBuf, 0) then
+            local v = efirPrizeBuf[0]
+            if v >= 0 and v <= 999999999 then efirCfg.prize_fund = v; efirSaveConfig() end
+        end
+        imgui.PopStyleColor(2)
+        advance(S(8))
+        flowButton('efstartmath', 'НАЧАТЬ ЭФИР (Математика)', C.ready, function()
+            efirAutoStart('math'); efirGenerateMath()
+        end, w - S(12), S(30))
+        advance(S(6))
+        flowButton('efstartanagram', 'НАЧАТЬ ЭФИР (Анаграммы)', C.soon, function()
+            efirAutoStart('anagram')
+            if not efirGenerateAnagram() then
+                efirSay((efirTexts and efirTexts.system.no_anagram_words)
+                        or efirDefaultTexts().system.no_anagram_words)
+            end
+        end, w - S(12), S(30))
+        advance(S(6))
+        flowButton('efstartvysh', 'НАЧАТЬ ЭФИР (Вышибалы)', C.violet, function()
+            efirAutoStart('vyshibaly'); efirGenerateVyshibaly()
+        end, w - S(12), S(30))
+    else
+        advance(sectionStrip(w, 'текущее задание (' .. efirType .. ')') + S(6))
+        local q, a
+        if efirMode == 'math' then
+            q, a = efirMathQ .. efirMathSuffix, tostring(efirMathA)
+        elseif efirMode == 'anagram' then
+            q, a = efirAnagramShuffled, efirAnagramWord
+        else
+            q, a = efirVyshMasked, efirVyshWord
+        end
+        local xq, yq = anchoredRow('efq', lineH + S(12))
+        fillRect(dl, xq, yq, w, lineH + S(12), C.frame, S(4))
+        drawTextClipped(dl, xq + S(8), yq + S(6), q, C.soon, w * 0.6)
+        drawText(dl, xq + w - textW('ответ: ' .. a) - S(8), yq + S(6), 'ответ: ' .. a, C.ready)
+        advance(S(8))
+        local half = (w - S(12) - S(6)) / 2
+        flowButton('efnew', 'Новый', C.text, function()
+            if efirMode == 'math' then efirGenerateMath()
+            elseif efirMode == 'anagram' then efirGenerateAnagram()
+            else efirGenerateVyshibaly() end
+        end, half, S(28))
+        sameRow(S(6))
+        flowButton('eftochat', 'В чат', C.info, function()
+            if efirMode == 'math' then
+                efirSendChat('Следующий пример: ' .. efirMathQ .. efirMathSuffix)
+            elseif efirMode == 'anagram' then
+                efirSendChat('Анаграмма: ' .. efirFormatAnagramDots(efirAnagramShuffled))
+            else
+                efirSendChat('Слово: ' .. efirVyshMasked)
+            end
+            efirFirstAnswer = nil
+        end, half, S(28))
+        advance(S(8))
+        flowButton('efcorrect', 'Верный ответ', C.ready, efirConfirmCorrect, w - S(12), S(30))
+        if efirGenderPending then
+            imgui.OpenPopup('##efirgender')
+        end
+        if imgui.BeginPopupModal('##efirgender', nil, imgui.WindowFlags.AlwaysAutoResize) then
+            imgui.Text('Укажите пол игрока:')
+            imgui.TextColored(C.info, '   ' .. efirFormatNick(efirGenderPending and efirGenderPending.nick))
+            imgui.Dummy(V(1, S(10)))
+            local bw = S(140)
+            flowButton('efgm', 'Парень', C.info, function()
+                local p = efirGenderPending
+                efirGenders[p.nick] = 'm'
+                efirSaveGenders()
+                efirGenderPending = nil
+                efirRunEvents(efirApplyCorrect(p.nick, p.id))
+                imgui.CloseCurrentPopup()
+            end, bw, S(28))
+            imgui.SameLine()
+            flowButton('efgf', 'Девушка', C.accent, function()
+                local p = efirGenderPending
+                efirGenders[p.nick] = 'f'
+                efirSaveGenders()
+                efirGenderPending = nil
+                efirRunEvents(efirApplyCorrect(p.nick, p.id))
+                imgui.CloseCurrentPopup()
+            end, bw, S(28))
+            imgui.EndPopup()
+        end
+    end
+
+    advance(S(10))
+    advance(sectionStrip(w, 'счёт эфира') + S(6))
+    drawEfirTable(efirScoreRows(), S(220))
+    advance(S(10))
+    advance(sectionStrip(w, 'речи и служебное') + S(8))
+    local third = (w - S(12) - 2 * S(6)) / 3
+    flowButton('efintro', 'Стартовая речь', C.ready, efirPlayIntro, third, S(28))
+    sameRow(S(6))
+    flowButton('efrules', 'Правила', C.info, efirPlayRules, third, S(28))
+    sameRow(S(6))
+    flowButton('efoutro', 'Финал', C.violet, efirPlayOutro, third, S(28))
+    advance(S(6))
+    flowButton('eftop', 'Итоги в чат', C.info, efirSendTopScores, third, S(28))
+    sameRow(S(6))
+    flowButton('efadv', 'Реклама', C.soon, efirPlayAdvertisement, third, S(28))
+    sameRow(S(6))
+    flowButton('efshot', 'Скриншот', C.text, function()
+        if lua_thread then lua_thread.create(efirMakeScreenshot) end
+    end, third, S(28))
+    advance(S(6))
+    flowButton('efstop', 'Завершить эфир', C.blocked, efirAutoStop, w - S(12), S(28))
+end
+
+local function measureEfir()
+    local base = 4 * (S(20) + S(6)) + 4 * (lineH + S(10)) + S(60)
+    if not efirAccessGranted then return base end
+    if not efirRunning then
+        return base + 2 * frameH + 3 * (S(30) + S(6)) + S(40)
+    end
+    return base + lineH + S(12) + 2 * (S(28) + S(8)) + S(30)
+        + math.min(#efirScoreRows(), 6) * rowH + S(60)
+        + 2 * (S(28) + S(6)) + S(40)
+end
+
+local function efirSettings(add)
+    add('kv', 'доступ', efirAccessGranted and 'разрешён' or 'закрыт',
+        efirAccessGranted and C.ready or C.blocked)
+    add('kv', 'хоткей вкладки', vkToName(efirCfg.hotkey), C.textDim)
+    add('kv', 'максимум баллов', tostring(efirCfg.max_score), C.textDim)
+    add('kv', 'призовой фонд', tostring(efirCfg.prize_fund) .. '$', C.textDim)
+    add('kv', 'ставка за минуту', tostring(efirCfg.price_per_minute) .. '$', C.textDim)
+    add('hint', '   база баллов и тексты речей: ' .. EFIR_DIR)
+end
+
+registerModule({
+    id = 'efir', title = 'Эфир', strip = 'Помощник эфира',
+    hint = 'викторины в эфире: математика, анаграммы, вышибалы; счёт и речи',
+    order = 20,
+    draw = drawEfirBody,
+    measure = measureEfir,
+    width = function() return S(680) end,
+    settings = efirSettings,
+    onServerMessage = efirOnServer,
+    onChatMessage = efirOnServer,
+    onTick = efirOnTick,
+    onLoad = efirLoad,
+    onTerminate = efirTerminate,
+    commands = {
+        ['efir'] = function()
+            if not efirAccessGranted then
+                say('{FFAA00}[SFN] У вас нет доступа к модулю «Эфир».')
+                return
+            end
+            for i, mid in ipairs(MENU_IDS) do
+                if mid == 'efir' then ui.menu = i; win[0] = not win[0] and true or win[0] end
+            end
+            win[0] = true
+        end,
+        ['efirversion'] = function()
+            if not efirIsAdmin(localNick) then return end
+            say('{66FF66}[SFN] Версия модуля: 7.0.1 (в составе SFN Helper '
+                .. SFN_VERSION_STR .. ')')
+        end,
+        ['efirlist'] = function()
+            if not efirIsAdmin(localNick) then return end
+            say('{66FF66}[SFN] Разрешённых ников (кроме админов): ' .. #EFIR_ALLOWED_HASHES)
+        end,
+        ['efirwhoami'] = function()
+            if not efirIsAdmin(localNick) then return end
+            if not localNick or localNick == '' then return end
+            say('{66FF66}[SFN] Ваш ник: ' .. localNick)
+            say('{AAAAAA}[SFN] SHA256: ' .. efirSha256(localNick .. EFIR_AUTH_SALT))
+            say('{AAAAAA}[SFN] Роль: АДМИН')
+        end,
+    },
+})
+
+end
+
 -- ================================================== МОДАЛКИ ==============
 
 local function modalSize(w, h)
@@ -5443,6 +6643,9 @@ function main()
             pcall(refreshOnline)
         end
         pcall(tickRosterSave)      -- отложенная запись roster.json (батчинг)
+        for _, mod in ipairs(MODULES) do
+            if mod.onTick then pcall(mod.onTick, now) end
+        end
         if localNick == '' and now - lastNick >= 10 then
             lastNick = now
             localNick = detectLocalNick() or ''
@@ -5458,6 +6661,9 @@ SFNLogs.registerCommands = registerCommands
 
 function onScriptTerminate(scr)
     if scr ~= thisScript() then return end
+    for _, mod in ipairs(MODULES) do
+        if mod.onTerminate then pcall(mod.onTerminate) end
+    end
     pcall(saveRoster, true)       -- принудительная запись перед выгрузкой
     pcall(saveUpdateState)        -- чтобы не потерять готовое обновление
 end
