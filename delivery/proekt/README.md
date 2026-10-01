@@ -171,7 +171,17 @@ python tests/run_helper_logic.py         # 853 passed — ядро SFN_Helper
 python tests/run_helper_ui.py            # 192 passed — вёрстка вкладок
 python tests/render_svg.py               # preview/*.svg (10 сцен)
 python tests/render_helper_svg.py        # preview/helper-*.svg (9 сцен)
+python tests/run_lua51_syntax.py         # игровой слой компилируется
+                                         # парсером Lua 5.1 (LuaJIT) + фазз
+                                         # bit-шима и SHA-256 (~8000 кейсов)
 ```
+
+Набор `run_lua51_syntax.py` — единственный, который НЕ через lupa: он требует
+настоящие бинарники Lua 5.1 (`luac5.1`, `lua5.1` — ищутся в `$LUAC51`/`$LUA51`,
+`../tools/` и PATH; сборка из исходников описана в шапке файла, CI собирает
+сам). Причина: lupa — это Lua 5.4+, где побитовые операторы законны, а
+MoonLoader исполняет скрипты на LuaJIT (Lua 5.1), где их нет: hotfix 0.3.1
+закрывает класс ошибок «в тестах грузится, в игре падает на парсере».
 
 Тот же набор выполняет GitHub Actions (`.github/workflows/tests.yml`) на каждый
 push и pull request: автообновление подменяет файл скрипта у всех игроков

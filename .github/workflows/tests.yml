@@ -16,7 +16,13 @@ name: tests
 #   strict     — отдельная проверка, что DrawList жив и окно не деградировало
 #                в текстовый режим (цвета и примитивы реально вызываются);
 #   helper 853 — логика ядра и модулей SFN_Helper (Фото, Эфир, Соцопрос,
-#                общая база полов) и 192 проверки вёрстки его вкладок.
+#                общая база полов) и 192 проверки вёрстки его вкладок;
+#   lua51      — игровой слой обязан компилироваться парсером Lua 5.1:
+#                MoonLoader работает на LuaJIT (5.1), а lupa — на Lua 5.4+,
+#                операторы & | ~ << >> // в 5.1 не существуют (регресс
+#                helper 0.3.0: bit-шим на операторах 5.3 уронил загрузку
+#                скрипта в игре). Там же фазз bit-шима и SHA-256 на
+#                настоящем интерпретаторе 5.1 против семантики LuaJIT.
 
 on:
   push:
@@ -44,6 +50,23 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install lupa
+
+      - name: Lua 5.1 для проверки синтаксиса LuaJIT (сборка из исходников)
+        run: |
+          curl -sSL -o /tmp/lua-5.1.5.tar.gz https://www.lua.org/ftp/lua-5.1.5.tar.gz
+          echo "2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333  /tmp/lua-5.1.5.tar.gz" | sha256sum -c -
+          tar xzf /tmp/lua-5.1.5.tar.gz -C /tmp
+          cd /tmp/lua-5.1.5/src
+          CORE="lapi.c lcode.c ldebug.c ldo.c ldump.c lfunc.c lgc.c llex.c lmem.c lobject.c lopcodes.c lparser.c lstate.c lstring.c ltable.c ltm.c lundump.c lvm.c lzio.c lauxlib.c lbaselib.c ldblib.c liolib.c lmathlib.c loslib.c ltablib.c lstrlib.c loadlib.c linit.c"
+          gcc -O1 -w -o luac5.1 luac.c print.c $CORE -lm
+          gcc -O1 -w -o lua5.1 lua.c $CORE -lm
+          ./luac5.1 -v
+          echo "LUAC51=/tmp/lua-5.1.5/src/luac5.1" >> "$GITHUB_ENV"
+          echo "LUA51=/tmp/lua-5.1.5/src/lua5.1" >> "$GITHUB_ENV"
+        working-directory: .
+
+      - name: "Lua 5.1: синтаксис игровых файлов для LuaJIT + фазз bit-шима"
+        run: python tests/run_lua51_syntax.py
 
       - name: Синтаксис всех копий SFNLogs.lua и SFN_Helper.lua
         run: |

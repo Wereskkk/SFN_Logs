@@ -53,9 +53,11 @@ local function section(t) print('\n== ' .. t) end
 -- ============================================ ЯДРО ПОМОЩНИКА ==============
 section('helper: идентификация ядра')
 ok('имя скрипта - SFN Helper', full:find("script_name('SFN Helper')", 1, true) ~= nil)
-ok('версия шапки и литерал совпадают (0.3.0)',
-   full:find("script_version('0.3.0')", 1, true) ~= nil
-   and full:find("SFN_VERSION_STR = '0.3.0'", 1, true) ~= nil)
+-- версия не захардкожена: шапка и литерал обязаны совпасть при любом релизе
+local hdr_ver = full:match("script_version%('([^']+)'%)")
+local lit_ver = full:match("SFN_VERSION_STR = '([^']+)'")
+ok('версия шапки и литерал совпадают (' .. tostring(hdr_ver) .. ')',
+   hdr_ver ~= nil and hdr_ver == lit_ver)
 ok('апдейтер берёт SFN_Helper.lua',
    full:find('raw.githubusercontent.com/Wereskkk/SFN_Logs/main/SFN_Helper.lua', 1, true) ~= nil)
 ok('папка данных - SFNHelper', full:find(".. '\\\\SFNHelper'", 1, true) ~= nil)
@@ -92,9 +94,9 @@ local function fakeScript(name, ver)
     while #head < 60100 do head = head .. '\n-- x' end
     return head
 end
-eq('валидация принимает Helper новее', validateScriptText(fakeScript('SFN Helper', '9.9.9'), '0.3.0'), '9.9.9')
+eq('валидация принимает Helper новее', validateScriptText(fakeScript('SFN Helper', '9.9.9'), hdr_ver), '9.9.9')
 ok('валидация отвергает чужое имя (SFN Logs)',
-   select(1, validateScriptText(fakeScript('SFN Logs', '9.9.9'), '0.3.0')) == nil)
+   select(1, validateScriptText(fakeScript('SFN Logs', '9.9.9'), hdr_ver)) == nil)
 
 -- ============================================ ФОТО: ДИАЛОГ ПАПАРАЦЦИ =======
 section('фото: колонка «Фото» в заказ-диалоге')

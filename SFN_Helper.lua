@@ -1,5 +1,5 @@
 script_name('SFN Helper')
-script_version('0.3.0')
+script_version('0.3.1')
 script_author('San Fierro News')
 
 -- Версия одна на весь файл и объявлена в самом верху.
@@ -10,7 +10,7 @@ script_author('San Fierro News')
 -- поэтому SFN_VERSION_STR читался там как глобальный nil, и любая проверка
 -- обновления отвечала «версия не новее текущей nil». Теперь литерал ровно
 -- один, и он обязан совпадать со script_version() (проверяется тестом).
-SFN_VERSION_STR = '0.3.0'
+SFN_VERSION_STR = '0.3.1'
 
 --[[
     SFN Helper: журнал состава San Fierro News и модули редакции в одном
@@ -2114,31 +2114,133 @@ end)()
 --   * светлая/своя тема и отдельный хоткей упразднены: общий дизайн, общий
 --     хоткей окна; личный хоткей модуля открывает окно на вкладке «Эфир».
 
--- bit-шим для тестов: в игре (LuaJIT) есть библиотека bit, в Lua 5.4 её нет
+-- bit-шим для тестов: в игре (LuaJIT) есть библиотека bit, в Lua 5.4+ её нет.
+-- ВАЖНО: ветка else компилируется вместе со всем файлом, а MoonLoader работает
+-- на LuaJIT (Lua 5.1), где операторов & | ~ << >> // не существует - значит
+-- шим обязан быть синтаксически валидным для 5.1, поэтому он собран на чистой
+-- арифметике (+ - * / % ^, math.floor). Семантика совпадает с LuaJIT bit
+-- (src/lib_bit.c, vm_x64.dasc):
+--   * результаты - знаковые int32, любые входные числа приводятся по mod 2^32;
+--   * rshift логический, arshift арифметический;
+--   * расстояние сдвига/поворота усекается по mod 32 (как x86: cl & 31);
+--   * tohex: строчные, дополнение нулями; n < 0 - ЗАГЛАВНЫЕ; при n < 8 число
+--     обрезается до 4n бит; n > 254 прижимается к 254.
 local bit
 if type(_G.bit) == 'table' and _G.bit.band then
     bit = _G.bit
 else
-    local function mask32(v) return v & 0xFFFFFFFF end
-    -- variadic, как в LuaJIT: bit.bxor(a, b, c) и bit.bor(a, b, c, d)
-    local function fold(op, a, b, ...)
-        local r = op(mask32(a), mask32(b))
-        if select('#', ...) == 0 then return r end
-        return fold(op, r, ...)
+    local floor = math.floor
+    local M2_31 = 2147483648    -- 2^31
+    local M2_32 = 4294967296    -- 2^32
+
+    -- Любое число -> знаковый int32 (bit.tobit из LuaJIT).
+    -- % в Lua - floor, поэтому остаток отрицательных чисел уже лежит в 0..2^32-1.
+    local function tobit(v)
+        v = floor(v % M2_32)
+        if v >= M2_31 then v = v - M2_32 end
+        return v
     end
-    local function and2(a, b) return a & b end
-    local function xor2(a, b) return a ~ b end
-    local function or2(a, b) return a | b end
+
+    -- Беззнаковый 32-битный «узор» числа, 0..2^32-1.
+    local function pattern(v)
+        return floor(v % M2_32)
+    end
+
+    -- Поразрядная двуместная операция над узорами: 32 шага от младшего бита.
+    -- keep(abit, bbit) решает, ставить ли текущий бит результата.
+    local function bitop(a, b, keep)
+        a, b = pattern(a), pattern(b)
+        local r, p = 0, 1
+        for _ = 1, 32 do
+            local abit = a % 2
+            local bbit = b % 2
+            if keep(abit, bbit) then r = r + p end
+            a = (a - abit) / 2
+            b = (b - bbit) / 2
+            p = p * 2
+        end
+        return r
+    end
+    local function and2(a, b) return bitop(a, b, function(x, y) return x == 1 and y == 1 end) end
+    local function or2(a, b)  return bitop(a, b, function(x, y) return x == 1 or  y == 1 end) end
+    local function xor2(a, b) return bitop(a, b, function(x, y) return x ~= y end) end
+
+    -- variadic-свёртка, как в LuaJIT: bit.bxor(a, b, c) и bit.bor(a, b, c, d).
+    local function fold(op, a, ...)
+        local n = select('#', ...)
+        if n == 0 then return tobit(a) end
+        local r = pattern(a)
+        for i = 1, n do
+            r = op(r, (select(i, ...)))
+        end
+        return tobit(r)
+    end
+
+    -- Расстояние сдвига как в VM LuaJIT: tobit(n) & 31, то есть n по mod 32.
+    local function shdist(n)
+        return tobit(n) % 32
+    end
+
     bit = {
-        band   = function(a, b, ...) return fold(and2, a, b, ...) end,
-        bxor   = function(a, b, ...) return fold(xor2, a, b, ...) end,
-        bor    = function(a, b, ...) return fold(or2, a, b, ...) end,
-        bnot   = function(a) return mask32(~a) end,
-        ror    = function(a, n) a = mask32(a) return mask32((a >> n) | (a << (32 - n))) end,
-        lshift = function(a, n) return mask32(a << n) end,
-        rshift = function(a, n) return mask32(a >> n) end,
-        tobit  = function(a) return mask32(a) end,
-        tohex  = function(v, n) return string.format('%0' .. (n or 8) .. 'x', mask32(v)) end,
+        tobit  = tobit,
+        band   = function(a, ...) return fold(and2, a, ...) end,
+        bor    = function(a, ...) return fold(or2,  a, ...) end,
+        bxor   = function(a, ...) return fold(xor2, a, ...) end,
+        bnot   = function(a) return tobit(-1 - tobit(a)) end,
+        lshift = function(a, n)
+            n = shdist(n)
+            if n == 0 then return tobit(a) end
+            -- сперва отбрасываем биты, которые уедут за 32-й, потом умножаем:
+            -- произведение всегда < 2^32 и точно представимо double
+            return tobit(pattern(a) % (2 ^ (32 - n)) * (2 ^ n))
+        end,
+        rshift = function(a, n)
+            n = shdist(n)
+            return tobit(floor(pattern(a) / (2 ^ n)))
+        end,
+        arshift = function(a, n)
+            n = shdist(n)
+            -- floor-деление знакового числа ровно повторяет арифметический сдвиг
+            return tobit(floor(tobit(a) / (2 ^ n)))
+        end,
+        rol    = function(a, n)
+            n = shdist(n)
+            if n == 0 then return tobit(a) end
+            a = pattern(a)
+            local cut = 2 ^ (32 - n)
+            return tobit((a % cut) * (2 ^ n) + floor(a / cut))
+        end,
+        ror    = function(a, n)
+            n = shdist(n)
+            if n == 0 then return tobit(a) end
+            a = pattern(a)
+            local cut = 2 ^ n
+            return tobit((a % cut) * (2 ^ (32 - n)) + floor(a / cut))
+        end,
+        bswap  = function(a)
+            a = pattern(a)
+            local r = 0
+            for _ = 1, 4 do
+                r = r * 256 + (a % 256)
+                a = floor(a / 256)
+            end
+            return tobit(r)
+        end,
+        tohex  = function(v, n)
+            v = pattern(v)
+            n = (n == nil) and 8 or tobit(n)
+            local up = false
+            if n < 0 then up = true n = tobit(-n) end
+            if n > 254 then n = 254 end
+            if n < 8 then v = floor(v % (2 ^ (4 * n))) end
+            -- дописываем нули вручную: string.format('%0254x', ...) в Lua 5.1
+            -- падает («width or precision too long»), а LuaJIT tohex(x, 254)
+            -- обязан работать
+            local s = string.format('%x', v)
+            if n == 0 then s = (v == 0) and '' or s end
+            if #s < n then s = string.rep('0', n - #s) .. s end
+            return up and string.upper(s) or s
+        end,
     }
 end
 

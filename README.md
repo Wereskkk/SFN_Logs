@@ -5,13 +5,15 @@ Role Play, сервер Saint-Louis). Два готовых к установк�
 
 | файл | что это | версия |
 |---|---|---|
-| [`SFN_Helper.lua`](SFN_Helper.lua) | **всё в одном**: журнал состава + модули редакции в общем окне с вкладками | 0.3.0 |
+| [`SFN_Helper.lua`](SFN_Helper.lua) | **всё в одном**: журнал состава + модули редакции в общем окне с вкладками | 0.3.1 |
 | [`SFNLogs.lua`](SFNLogs.lua) | только журнал состава (прежний отдельный скрипт) | 2.2.4 |
 
 Оба файла обновляют себя сами из ветки `main`, поэтому **коммит в `main` =
 релиз для всех, кто установил скрипт**. Перед вливанием обязан пройти
 GitHub Actions (`.github/workflows/tests.yml`): 554 + 272 + 149 проверок
-SFN Logs и 853 + 192 проверки SFN_Helper.
+SFN Logs, 853 + 192 проверки SFN_Helper и набор `lua51` — игровой слой
+компилируется настоящим парсером Lua 5.1 (MoonLoader/LuaJIT), bit-шим и
+SHA-256 сверяются с LuaJIT фаззом (~8000 кейсов).
 
 ---
 
@@ -115,8 +117,13 @@ python delivery/proekt/tests/run_ui.py             # 272 passed
 python delivery/proekt/tests/run_api.py            # 149 passed
 python delivery/proekt/tests/run_helper_logic.py   # 853 passed
 python delivery/proekt/tests/run_helper_ui.py      # 192 passed
+python delivery/proekt/tests/run_lua51_syntax.py   # синтаксис Lua 5.1 (LuaJIT)
 python delivery/proekt/tools/sync_delivery.py --check
 ```
+
+Набору `run_lua51_syntax.py` нужны бинарники Lua 5.1 (`luac5.1`/`lua5.1`):
+ищутся в `$LUAC51`/`$LUA51`, `../tools/` и PATH; инструкция по сборке из
+исходников — в шапке файла (CI собирает сам).
 
 ## Теги
 
