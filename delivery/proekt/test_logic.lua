@@ -1028,8 +1028,8 @@ ok('исходник: значок «‹» не рисуется', full:find("'A
 ok('исходник: команда выгрузки зарегистрирована',
    full:find("sampRegisterChatCommand('sfnlogexport'", 1, true) ~= nil)
 ok('исходник: версии в шапке и внутри совпадают',
-   full:find("script_version('2.2.3')", 1, true) ~= nil
-   and full:find("SFN_VERSION_STR = '2.2.3'", 1, true) ~= nil)
+   full:find("script_version('2.2.4')", 1, true) ~= nil
+   and full:find("SFN_VERSION_STR = '2.2.4'", 1, true) ~= nil)
 -- v2.2.3: в 2.1.0 подписка на чат потерялась, и /members не перехватывался в
 -- игре при зелёных тестах (они зовут membersFeed напрямую). Больше нельзя.
 ok('исходник: подписка sampev.onServerMessage на месте',
@@ -1119,7 +1119,7 @@ end
 section('v2.2.0: validateScriptText — скачанный файл проверяется до замены')
 -- SFN_VERSION_STR объявлен вне PURE-секции (в ImGui-части), поэтому здесь
 -- версия задаётся явно; её совпадение с исходником проверяется в страховках.
-local CUR = '2.2.3'
+local CUR = '2.2.4'
 ok('текущая версия скрипта совпадает с ожидаемой в тесте',
    full:find("script_version('" .. CUR .. "')", 1, true) ~= nil)
 
@@ -1317,8 +1317,8 @@ ok('исходник: состояние пишется в update.json',
 ok('исходник: saveConfig вызывается из настроек окна',
    full:find('saveConfig()', 1, true) ~= nil)
 ok('исходник: версия шапки и литерал совпадают (2.2.3)',
-   full:find("script_version('2.2.3')", 1, true) ~= nil
-   and full:find("SFN_VERSION_STR = '2.2.3'", 1, true) ~= nil)
+   full:find("script_version('2.2.4')", 1, true) ~= nil
+   and full:find("SFN_VERSION_STR = '2.2.4'", 1, true) ~= nil)
 local _, nVerLit = full:gsub("SFN_VERSION_STR%s*=%s*'[%d%.]+'", '')
 eq('исходник: литерал версии ровно один (иначе разъедется)', nVerLit, 1)
 local posTop = full:find("SFN_VERSION_STR = '", 1, true)
@@ -1336,6 +1336,46 @@ ok('исходник: таблицы форм логотипа на месте',
    full:find('LOGO_SPLASH', 1, true) ~= nil and full:find('LOGO_E', 1, true) ~= nil)
 eq('исходник: метка начала PURE одна', nBegin, 1)
 eq('исходник: метка конца PURE одна', nEnd, 1)
+
+-- ============================================ ПОРЯДОК СТРОК ЖУРНАЛА ========
+section('Порядок строк журнала детерминирован')
+-- сотрудники одного ранга с одной датой приёма: без тай-брейка по нику
+-- table.sort получал сравнение «ни больше ни меньше», порядок обхода pairs
+-- deciding случайным образом, и журнал переставлял строки между запусками
+-- (это же ломало побайтовую воспроизводимость SVG-превью в CI)
+do
+    local T = 1750000000
+    roster = { members = {}, version = 1 }
+    for _, nick in ipairs({ 'Zoya_Orlova', 'Anna_Malboro', 'Boris_Volkov',
+                            'Sonya_Malboro', 'Alex_Wilde' }) do
+        addMember(nick, 'Leader_Name', T - 5 * D, 4, 6, T)
+    end
+    local first = {}
+    for _, m in ipairs(sortedMembers(false)) do first[#first + 1] = m.nick end
+    eq('одинаковые ранг и дата - сортировка по нику',
+       table.concat(first, ','),
+       'Alex_Wilde,Anna_Malboro,Boris_Volkov,Sonya_Malboro,Zoya_Orlova')
+
+    -- тот же набор, добавленный в обратном порядке: результат обязан совпасть
+    roster = { members = {}, version = 1 }
+    for _, nick in ipairs({ 'Alex_Wilde', 'Sonya_Malboro', 'Boris_Volkov',
+                            'Anna_Malboro', 'Zoya_Orlova' }) do
+        addMember(nick, 'Leader_Name', T - 5 * D, 4, 6, T)
+    end
+    local second = {}
+    for _, m in ipairs(sortedMembers(false)) do second[#second + 1] = m.nick end
+    eq('порядок добавления не влияет на список', table.concat(second, ','),
+       table.concat(first, ','))
+
+    -- ранг важнее ника, уволенные всегда ниже
+    addMember('Yan_Frolov', 'Leader_Name', T - 5 * D, 7, 9, T)
+    local y = dismissMember('Boris_Volkov', 'нарушение регламента', T)
+    local mixed = {}
+    for _, m in ipairs(sortedMembers(true)) do mixed[#mixed + 1] = m.nick end
+    eq('старший ранг первым', mixed[1], 'Yan_Frolov')
+    eq('уволенный - последним', mixed[#mixed], 'Boris_Volkov')
+    ok('увольнение вернуло запись', y ~= nil)
+end
 
 -- ============================================================ ИТОГ =======
 print(string.format('\n%d passed, %d failed', passed, failed))

@@ -1,5 +1,5 @@
 script_name('SFN Logs')
-script_version('2.2.3')
+script_version('2.2.4')
 script_author('San Fierro News')
 
 -- Версия одна на весь файл и объявлена в самом верху.
@@ -10,7 +10,7 @@ script_author('San Fierro News')
 -- поэтому SFN_VERSION_STR читался там как глобальный nil, и любая проверка
 -- обновления отвечала «версия не новее текущей nil». Теперь литерал ровно
 -- один, и он обязан совпадать со script_version() (проверяется тестом).
-SFN_VERSION_STR = '2.2.3'
+SFN_VERSION_STR = '2.2.4'
 
 --[[
     Журнал состава San Fierro News.
@@ -1510,7 +1510,14 @@ function sortedMembers(includeDismissed, filter)
     table.sort(list, function(a, b)
         if a.dismissed ~= b.dismissed then return not a.dismissed end
         if (a.rank or 0) ~= (b.rank or 0) then return (a.rank or 0) > (b.rank or 0) end
-        return (a.acceptedAt or 0) < (b.acceptedAt or 0)
+        if (a.acceptedAt or 0) ~= (b.acceptedAt or 0) then
+            return (a.acceptedAt or 0) < (b.acceptedAt or 0)
+        end
+        -- последний тай-брейк обязателен: без него сотрудники одного ранга с
+        -- одной датой приёма переставлялись между запусками (порядок обхода
+        -- pairs + неустойчивая сортировка) - журнал «мигал» и превью в CI не
+        -- совпадали побайтово
+        return (a.nick or '') < (b.nick or '')
     end)
     return list
 end

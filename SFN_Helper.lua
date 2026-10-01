@@ -1,5 +1,5 @@
 script_name('SFN Helper')
-script_version('0.1.0')
+script_version('0.2.0')
 script_author('San Fierro News')
 
 -- Версия одна на весь файл и объявлена в самом верху.
@@ -10,11 +10,11 @@ script_author('San Fierro News')
 -- поэтому SFN_VERSION_STR читался там как глобальный nil, и любая проверка
 -- обновления отвечала «версия не новее текущей nil». Теперь литерал ровно
 -- один, и он обязан совпадать со script_version() (проверяется тестом).
-SFN_VERSION_STR = '0.1.0'
+SFN_VERSION_STR = '0.2.0'
 
 --[[
     SFN Helper: журнал состава San Fierro News и модули редакции в одном
-    окне с вкладками. Ядро и вкладка «Журнал»/«Поиск» - из SFN Logs 2.2.3;
+    окне с вкладками. Ядро и вкладка «Журнал»/«Поиск» - из SFN Logs 2.2.4;
     модули (Фото, далее Эфир и Соцопрос) подключаются реестром MODULES.
 
     По каждому игроку хранит: ник, кто принял, дату принятия, текущий ранг и
@@ -1519,7 +1519,14 @@ function sortedMembers(includeDismissed, filter)
     table.sort(list, function(a, b)
         if a.dismissed ~= b.dismissed then return not a.dismissed end
         if (a.rank or 0) ~= (b.rank or 0) then return (a.rank or 0) > (b.rank or 0) end
-        return (a.acceptedAt or 0) < (b.acceptedAt or 0)
+        if (a.acceptedAt or 0) ~= (b.acceptedAt or 0) then
+            return (a.acceptedAt or 0) < (b.acceptedAt or 0)
+        end
+        -- последний тай-брейк обязателен: без него сотрудники одного ранга с
+        -- одной датой приёма переставлялись между запусками (порядок обхода
+        -- pairs + неустойчивая сортировка) - журнал «мигал» и превью в CI не
+        -- совпадали побайтово
+        return (a.nick or '') < (b.nick or '')
     end)
     return list
 end
@@ -1736,7 +1743,99 @@ function needUpdateCheck(now, force)
     return (now - last) >= every
 end
 
-do
+;(function()
+-- ============================================ ОБЩАЯ БАЗА ПОЛОВ ===========
+-- «Эфир» и «Соцопрос» говорят про одних и тех же людей: пол игрока должен
+-- определяться один раз и для всех модулей. Поэтому база общая —
+-- SFNHelper\genders.json. При первом чтении в неё сливаются оба старых
+-- файла (sfn_data\genders.json и sfn_photo_data\genders.json): переход с
+-- отдельных скриптов не теряет данные, а старые файлы остаются на месте —
+-- откат на отдельный скрипт продолжает работать по своей базе.
+-- Глобалы (не local): слой нужен и PURE-части, и игровому слою модулей.
+
+GENDERS_SHARED = (getWorkingDirectory and getWorkingDirectory() or '.') .. '\\SFNHelper\\genders.json'
+GENDERS_LEGACY_EFIR  = (getWorkingDirectory and getWorkingDirectory() or '.') .. '\\sfn_data\\genders.json'
+GENDERS_LEGACY_PHOTO = (getWorkingDirectory and getWorkingDirectory() or '.') .. '\\sfn_photo_data\\genders.json'
+-- «Соцопрос» хранил пол там же, где свою базу (sfn_photo_data\genders.json):
+-- путь совпадает с GENDERS_LEGACY_PHOTO, но держим его отдельной переменной,
+-- чтобы перенос не зависел от того, какой модуль загрузился первым
+GENDERS_LEGACY_SOCIAL = GENDERS_LEGACY_PHOTO
+
+GENDERS = {}
+GENDERS_LOADED = false
+GENDERS_MIGRATED = false
+
+-- читает файл { "Ник": "m"|"f" } и доливает в общую базу
+function gendersMergeFile(path)
+    local raw = readFile(path)
+    if not raw or raw == '' then return 0 end
+    local ok, data = pcall(json.decode, raw)
+    if not ok or type(data) ~= 'table' then return 0 end
+    local n = 0
+    for nick, g in pairs(data) do
+        if (g == 'm' or g == 'f') and type(nick) == 'string' and nick ~= '' then
+            if GENDERS[nick] == nil then GENDERS[nick] = g; n = n + 1 end
+        end
+    end
+    return n
+end
+
+-- перенос из старых баз: один раз за запуск, чтобы удалённая запись не
+-- «воскресала» из старого файла при каждом чтении
+function gendersMigrate()
+    if GENDERS_MIGRATED then return 0 end
+    GENDERS_MIGRATED = true
+    local n = gendersMergeFile(GENDERS_LEGACY_EFIR)
+            + gendersMergeFile(GENDERS_LEGACY_PHOTO)
+            + gendersMergeFile(GENDERS_LEGACY_SOCIAL)
+    if n > 0 then
+        gendersSave()
+        -- logEvent определён в игровом слое ядра: PURE-тесты извлекают только
+        -- PURE-секцию, поэтому вызываем его лишь когда он есть
+        if type(logEvent) == 'function' then
+            logEvent(string.format('пол: перенесено %d записей из старых баз', n))
+        end
+    end
+    return n
+end
+
+function gendersAll()
+    if not GENDERS_LOADED then
+        gendersMergeFile(GENDERS_SHARED)
+        gendersMigrate()
+        GENDERS_LOADED = true
+    end
+    return GENDERS
+end
+
+function gendersSave()
+    if doesDirectoryExist and not doesDirectoryExist(DIR) then
+        if createDirectory then pcall(createDirectory, DIR) end
+    end
+    return writeFile(GENDERS_SHARED, json.encode(GENDERS))
+end
+
+function gendersGet(nick)
+    gendersAll()
+    if not nick or nick == '' then return nil end
+    return GENDERS[nick]
+end
+
+function gendersSet(nick, g)
+    if not nick or nick == '' then return false end
+    if g ~= 'm' and g ~= 'f' then return false end
+    gendersAll()
+    GENDERS[nick] = g
+    return gendersSave()
+end
+
+function gendersCount()
+    gendersAll()
+    local n = 0
+    for _ in pairs(GENDERS) do n = n + 1 end
+    return n
+end
+
 -- ================================================== МОДУЛЬ «ФОТО» (PURE) ===
 -- База фотографа (перенос sfn_photo_helper.lua v13.4.1): недельные лимиты
 -- фото игроков и мест, колонка «Фото» с метками [V]/[X] в заказ-диалоге
@@ -1975,9 +2074,9 @@ function photoLoad()
     return photoState
 end
 
-end
+end)()
 
-do
+;(function()
 -- ================================================== МОДУЛЬ «ЭФИР» (PURE) ===
 -- Перенос sfn_efir_helper.lua v7.0.1: викторины в эфире (математика,
 -- анаграммы, вышибалы), счёт баллов, половые формы для русских фраз,
@@ -2605,7 +2704,13 @@ function efirLoadConfig()
 end
 
 function efirSaveScores() efirWriteJson(EFIR_SCORES, efirScores) end
-function efirSaveGenders() efirWriteJson(EFIR_GENDERS, efirGenders) end
+function efirSaveGenders()
+    for nick, g in pairs(efirGenders) do
+        if GENDERS[nick] == nil then GENDERS[nick] = g end
+    end
+    gendersSave()
+    efirWriteJson(EFIR_GENDERS, efirGenders)
+end
 
 function efirLoadScores()
     local raw = readFile(EFIR_SCORES)
@@ -2620,17 +2725,462 @@ function efirLoadScores()
 end
 
 function efirLoadGenders()
-    local raw = readFile(EFIR_GENDERS)
-    if not raw or raw == '' then return end
-    local data = json.decode(raw)
-    if type(data) ~= 'table' then return end
-    for nick, g in pairs(data) do
-        if g == 'm' or g == 'f' then efirGenders[nick] = g end
+    -- база полов общая для всех модулей (см. слой «ОБЩАЯ БАЗА ПОЛОВ»);
+    -- если общего файла ещё нет, берём прежнюю базу отдельного скрипта
+    local n = 0
+    for nick, g in pairs(gendersAll()) do efirGenders[nick] = g; n = n + 1 end
+    if n == 0 then
+        local raw = readFile(EFIR_GENDERS)
+        if raw and raw ~= '' then
+            local ok, data = pcall(json.decode, raw)
+            if ok and type(data) == 'table' then
+                for nick, g in pairs(data) do
+                    if g == 'm' or g == 'f' then efirGenders[nick] = g end
+                end
+            end
+        end
     end
 end
 
 
+end)()
+
+;(function()
+-- ======================================= МОДУЛЬ «СОЦОПРОС» (PURE) =========
+-- Перенос sfn_social.lua v4.0: социальный опрос и раздача листовок.
+-- Слой без ImGui и SAMP API: состояние цикла, разбор строк чата, тексты
+-- реплик, файловая база. Всё, что обращается к игре, - в игровом слое ниже.
+--
+-- Данные остаются в СТАРОЙ папке sfn_photo_data\\social.json: переход с
+-- отдельного скрипта не теряет базу опросов и листовок.
+--
+-- ВАЖНО: оригинал читал базы через pcall(decodeJson, ...), а decodeJson не
+-- определён ни в самом скрипте, ни в MoonLoader - чтение всегда завершалось
+-- ошибкой, и social.json/genders.json молча не загружались. Здесь чтение
+-- идёт общим json.decode ядра, поэтому сохранённое переживает перезапуск.
+
+SOCIAL_AGREE_WORDS = {
+    'да', 'ок', 'окей', 'конечно', 'давай', 'ага', 'угу', 'yes',
+    'хорошо', 'без проблем', 'не вопрос', 'валяй', 'го', 'ok', 'слушаю',
+}
+
+SOCIAL_LIMITS = { surveys = 100, flyers = 100 }
+SOCIAL_RANGE = 3.0                 -- старт цикла: цель ищем в этом радиусе
+SOCIAL_TARGET_RANGE = 10.0         -- список вкладки и поиск по нику: шире
+SOCIAL_CHAT_DELAY = 1500           -- пауза между репликами, мс
+SOCIAL_CLEAR_DELAY = 800           -- пауза после /clearchat, мс
+SOCIAL_SHOT_TIME_WAIT = 1500       -- ждём штамп времени от /time 1, мс
+SOCIAL_SHOT_HIDE_WAIT = 300        -- окно должно успеть спрятаться, мс
+SOCIAL_TIME_COMMAND = '/time 1'
+SOCIAL_QUESTION_LIMIT = 128        -- лимит строки чата SA-MP
+SOCIAL_FLYER_LIMIT = 128
+SOCIAL_HOTKEY_DEFAULT = 0x79       -- F10: F11 занят личным хоткеем «Эфира»
+SOCIAL_DEFAULT_FLYER_ME = 'протянул листовку о вреде экологии человеку напротив'
+
+SOCIAL_DIR  = (getWorkingDirectory and getWorkingDirectory() or '.') .. '\\sfn_photo_data'
+SOCIAL_PATH = SOCIAL_DIR .. '\\social.json'
+SOCIAL_GENDERS_LEGACY = SOCIAL_DIR .. '\\genders.json'
+
+-- образцы строк сервера (как в оригинале): чат с ID, /me с ID, чат без ID
+SOCIAL_P_NICK_ID = '([%a][%w_]*)%[(%d+)%]'
+SOCIAL_P_NICK_ONLY = '^%-?%s*([%a][%w_]*):%s*(.+)$'
+SOCIAL_P_ME_LINE = '^%s*([%a][%w_]*)%s+(.+)$'
+SOCIAL_P_ME_ID = '^%s*([%a][%w_]*)%[(%d+)%]%s+(.+)$'
+
+SOCIAL_STAGES = {
+    [0] = 'не идёт',
+    [1] = 'ждём согласие',
+    [2] = 'ждём ответ',
+    [2.5] = 'ЖДЁМ СКРИН №1 (соцопрос)',
+    [3] = 'ждём /me листовки',
+    [3.5] = 'ЖДЁМ СКРИН №2 (листовка)',
+}
+
+-- состояние модуля (глобальное: нужно и вкладке, и командам, и тестам)
+social = {
+    active = false,
+    stage = 0,
+    targetId = nil,
+    targetNick = nil,
+    surveys = {},
+    flyers = {},
+    log = {},
+}
+socialQuestion = ''
+socialFlyerText = SOCIAL_DEFAULT_FLYER_ME
+socialHotkey = SOCIAL_HOTKEY_DEFAULT
+socialNeedGender = false
+socialSelectedId = nil
+
+function socialToday() return os.date('%Y-%m-%d') end
+
+function socialCount(tbl)
+    if type(tbl) ~= 'table' then return 0 end
+    local n = 0
+    for _ in pairs(tbl) do n = n + 1 end
+    return n
 end
+
+function socialStageName(stage) return SOCIAL_STAGES[stage or 0] or '?' end
+
+-- журнал модуля: последние 20 событий, свежие сверху
+function socialLogAdd(msg)
+    table.insert(social.log, 1, string.format('[%s] %s', os.date('%H:%M:%S'), tostring(msg)))
+    while #social.log > 20 do table.remove(social.log) end
+end
+
+function socialReset()
+    social.active = false
+    social.stage = 0
+    social.targetId = nil
+    social.targetNick = nil
+    socialNeedGender = false
+end
+
+-- согласие на опрос: слова из списка оригинала, сравнение в нижнем регистре
+-- с поддержкой кириллицы (string.lower в Lua не знает про А-Я)
+function socialAgree(text)
+    if not text or text == '' then return false end
+    local lower = utf8Lower(text)
+    for _, w in ipairs(SOCIAL_AGREE_WORDS) do
+        if lower:find(w, 1, true) then return true end
+    end
+    return false
+end
+
+function socialGenderOf(nick)
+    if gendersGet and nick then
+        local g = gendersGet(nick)
+        if g == 'm' or g == 'f' then return g end
+    end
+    return 'm'
+end
+
+-- половые формы реплик: «Гражданин/Гражданка», «взял/взяла»
+function socialForms(nick)
+    if socialGenderOf(nick) == 'f' then
+        return { citizen = 'Гражданка', took = 'взяла' }
+    end
+    return { citizen = 'Гражданин', took = 'взял' }
+end
+
+-- ------------------------------------------------------------- файл базы --
+function socialLogSequence()
+    -- json хранит пустой список как {}, а старый prettyJson - как [];
+    -- приводим к последовательности, иначе #log == 0 и журнал «пуст»
+    local out, n = {}, 0
+    for k, v in pairs(social.log or {}) do
+        if type(k) == 'number' then
+            n = n + 1
+            out[n] = tostring(v)
+        end
+    end
+    table.sort(out)
+    social.log = out
+    return out
+end
+
+function socialEnsureDir()
+    if doesDirectoryExist and not doesDirectoryExist(SOCIAL_DIR) then
+        if createDirectory then pcall(createDirectory, SOCIAL_DIR) end
+    end
+end
+
+function socialLoadFile()
+    socialEnsureDir()
+    local raw = readFile(SOCIAL_PATH)
+    if raw and raw ~= '' then
+        local ok, data = pcall(json.decode, raw)
+        if ok and type(data) == 'table' then
+            if type(data.surveys) == 'table' then social.surveys = data.surveys end
+            if type(data.flyers) == 'table' then social.flyers = data.flyers end
+            if type(data.log) == 'table' then social.log = data.log end
+            local hk = tonumber(data.hotkey)
+            if hk and hk >= 1 and hk <= 254
+               and hk ~= 1 and hk ~= 2 and hk ~= 4 and hk ~= 5 and hk ~= 6 then
+                socialHotkey = math.floor(hk)
+            end
+            if type(data.surveyQuestion) == 'string' then socialQuestion = data.surveyQuestion end
+            if type(data.flyerMeText) == 'string' and data.flyerMeText ~= '' then
+                socialFlyerText = data.flyerMeText
+            end
+        end
+    end
+    socialLogSequence()
+    -- хоткей отдельного скрипта был F11 - в Helper-е его занял модуль «Эфир»,
+    -- иначе одна клавиша открывала бы две вкладки; возвращаем F10
+    if socialHotkey == 0x7A then
+        socialHotkey = SOCIAL_HOTKEY_DEFAULT
+        socialLogAdd('хоткей F11 занят модулем «Эфир» - поставлен F10')
+    end
+    return social
+end
+
+function socialSaveFile()
+    socialEnsureDir()
+    return writeFile(SOCIAL_PATH, json.encode({
+        surveys = social.surveys,
+        flyers = social.flyers,
+        log = socialLogSequence(),
+        hotkey = socialHotkey,
+        surveyQuestion = socialQuestion,
+        flyerMeText = socialFlyerText,
+    }))
+end
+
+-- вопрос недели и текст /me: проверяем лимит строки чата SA-MP
+function socialApplyQuestion(q)
+    q = trim(tostring(q or ''))
+    if q == '' then return false, 'вопрос не может быть пустым' end
+    if #q > SOCIAL_QUESTION_LIMIT then
+        return false, string.format('длиннее %d символов - чат SA-MP обрежет', SOCIAL_QUESTION_LIMIT)
+    end
+    socialQuestion = q
+    return true
+end
+
+function socialApplyFlyerText(s)
+    s = trim(tostring(s or ''))
+    if s == '' then return false, 'текст не может быть пустым' end
+    if #s > SOCIAL_FLYER_LIMIT then
+        return false, string.format('длиннее %d символов - чат SA-MP обрежет', SOCIAL_FLYER_LIMIT)
+    end
+    socialFlyerText = s
+    return true
+end
+
+-- --------------------------------------------------- игроки рядом (PURE) --
+-- список приходит из игрового слоя: здесь только отбор по радиусу и сортировка
+function socialPlayersNear(list, maxDist, myId)
+    local out = {}
+    for _, p in ipairs(list or {}) do
+        if type(p) == 'table' and p.nick and p.nick ~= ''
+           and (p.id or -1) ~= myId
+           and tonumber(p.dist or 1e9) <= (maxDist or SOCIAL_RANGE) then
+            out[#out + 1] = { id = p.id, nick = p.nick, dist = tonumber(p.dist) or 0 }
+        end
+    end
+    table.sort(out, function(a, b) return a.dist < b.dist end)
+    return out
+end
+
+-- цель: выбранная вручную (клик по строке вкладки), иначе ближайшая
+function socialActualTarget(list, selectedId)
+    if selectedId then
+        for _, p in ipairs(list or {}) do
+            if p.id == selectedId then return p end
+        end
+        socialSelectedId = nil            -- выбранный игрок ушёл из радиуса
+    end
+    return (list or {})[1]
+end
+
+-- метки строки игрока: опрошен / выдана листовка / цель
+function socialMarks(nick)
+    local s = social.surveys[nick] ~= nil
+    local f = social.flyers[nick] ~= nil
+    local mark, col
+    if s and f then mark, col = 'ОПРОШЕН + ЛИСТ', 'blocked'
+    elseif s then mark, col = 'ОПРОШЕН', 'soon'
+    elseif f then mark, col = 'ЛИСТ', 'violet'
+    else mark, col = '', 'text' end
+    return mark, col, s, f
+end
+
+-- ------------------------------------------------------ цикл опроса ------
+-- Старт возвращает причину отказа (nil - значит цикл запущен). Реплики и
+-- паузы описывает список событий: игровой слой отправляет их в чат из
+-- lua_thread (wait() нельзя вызывать ни из кадра, ни из-под pcall).
+function socialStart(near, myNick)
+    if social.active then return false, 'цикл уже идёт' end
+    if socialQuestion == '' then return false, 'сначала задайте вопрос недели' end
+    if not myNick or myNick == '' then return false, 'ваш ник ещё не определён' end
+    local target = socialActualTarget(near, socialSelectedId)
+    if not target then
+        return false, string.format('нет игроков в радиусе %.1f м', SOCIAL_RANGE)
+    end
+    social.active = true
+    social.stage = 1
+    social.targetId = target.id
+    social.targetNick = target.nick
+    socialLogAdd(string.format('старт: цель %s (%.1f м)', target.nick, target.dist))
+    if gendersGet(target.nick) == nil then
+        socialNeedGender = true           -- спросим пол, потом поздороваемся
+        return true
+    end
+    return true, nil, socialBeginInterview(target.nick, myNick)
+end
+
+function socialBeginInterview(nick, myNick)
+    local f = socialForms(nick)
+    return {
+        clearChat = true,
+        chat = {
+            '/clearchat',
+            string.format('%s, здравствуйте, я сотрудник San Fierro News - %s, уделите мне буквально минуту',
+                          f.citizen, (myNick or ''):gsub('_', ' ')),
+            'Я провожу Социальный опрос, сможете ответить на один вопрос?',
+        },
+        waits = { SOCIAL_CLEAR_DELAY, SOCIAL_CHAT_DELAY + 500, 0 },
+    }
+end
+
+-- согласие получено (словом из чата или кнопкой вкладки) - задаём вопрос
+function socialGoStage2(nick)
+    if social.stage ~= 1 then return nil end
+    social.stage = 2
+    socialLogAdd('согласие от ' .. tostring(nick))
+    return { chat = { socialQuestion }, waits = { 500 } }
+end
+
+-- ответ на вопрос: пишем опрос в базу и ждём скриншот №1
+function socialAcceptSurvey(nick)
+    if social.stage ~= 2 then return nil end
+    social.stage = 2.5
+    social.surveys[nick] = { date = socialToday() }
+    socialLogAdd(string.format('опрос сдан: %s (%d/%d) - ждём скрин №1',
+                               nick, socialCount(social.surveys), SOCIAL_LIMITS.surveys))
+    return { save = true }
+end
+
+-- скриншот №1 сделан: переходим к листовке
+function socialAfterShot1(nick)
+    if social.stage ~= 2.5 then return nil end
+    social.stage = 3
+    socialLogAdd('скрин №1 сделан - этап 2 (листовка)')
+    return socialGiveFlyer(nick)
+end
+
+function socialGiveFlyer(nick)
+    local f = socialForms(nick)
+    return {
+        chat = {
+            'Спасибо за ваш ответ',
+            'А так-же возьмите пожалуйста нашу листовку',
+            '/me ' .. socialFlyerText,
+            '/b /me ' .. f.took .. ' листовку',
+        },
+        waits = { SOCIAL_CHAT_DELAY, SOCIAL_CHAT_DELAY, SOCIAL_CHAT_DELAY, 0 },
+    }
+end
+
+-- цель ответила «взял(а)» - листовка выдана, ждём скриншот №2
+function socialAcceptFlyer(nick)
+    if social.stage ~= 3 then return nil end
+    social.flyers[nick] = { date = socialToday() }
+    social.stage = 3.5
+    socialLogAdd(string.format('листовка сдана: %s (%d/%d) - ждём скрин №2',
+                               nick, socialCount(social.flyers), SOCIAL_LIMITS.flyers))
+    return { save = true }
+end
+
+-- скриншот №2: на стадии 3 листовку можно зачесть вручную (если /me цели
+-- не распознано) - поэтому forced
+function socialAfterShot2(nick, forced)
+    local ev = { chat = { 'Спасибо' }, waits = { SOCIAL_CHAT_DELAY }, save = true }
+    if forced and nick and social.flyers[nick] == nil then
+        social.flyers[nick] = { date = socialToday() }
+        socialLogAdd(string.format('листовка сдана (вручную): %s (%d/%d)',
+                                   nick, socialCount(social.flyers), SOCIAL_LIMITS.flyers))
+    end
+    -- цикл закрываем здесь же: конечный автомат целиком в PURE-слое, поэтому
+    -- состояние не зависит от того, есть ли в сборке lua_thread
+    local done = socialAbort(forced and 'успешно (вручную)' or 'успешно')
+    if done then ev.save = true end
+    return ev
+end
+
+function socialAbort(reason)
+    if not social.active then return nil end
+    socialLogAdd('прервано: ' .. tostring(reason))
+    socialReset()
+    return { save = true }
+end
+
+-- обработка строки от игрока: стадии 1/2/3, чужие сообщения игнорируем.
+-- «взял» на стадии 3 засчитывается и без слова «листовку» (как в оригинале).
+function socialHandleMessage(playerId, text, nickOf)
+    if not social.active then return nil end
+    if social.targetId and playerId ~= social.targetId then return nil end
+    local nick = (nickOf and nickOf(playerId)) or social.targetNick or '?'
+    local lower = utf8Lower(text or '')
+    if social.stage == 1 then
+        if not socialAgree(text) then return nil end
+        social.targetId = playerId
+        social.targetNick = nick
+        return socialGoStage2(nick)
+    elseif social.stage == 2 then
+        return socialAcceptSurvey(nick)
+    elseif social.stage == 3 then
+        if not lower:find('взял', 1, true) then return nil end
+        return socialAcceptFlyer(nick)
+    end
+    return nil
+end
+
+-- разбор строки сервера: возвращает id игрока и текст (или nil).
+-- resolve(nick) -> id нужен для строк без ID (обычный чат и /me).
+function socialParseLine(text, myId, myDisplayNick, resolve)
+    if not social.active or not text or text == '' then return nil end
+    -- собственное /me («Nick[ID] взял листовку») не должно двигать стадию
+    if myId and myDisplayNick and text:find(myDisplayNick .. '[' .. myId .. ']', 1, true) then
+        return nil
+    end
+    -- /me с ID («Yuliya_Gomes[70] взяла») - раньше чата с ID: общий образец
+    -- «Nick[ID]» не заякорен и ловит обе формы, а образцы текста у них разные
+    local meNick, meIdStr, meMsg = text:match(SOCIAL_P_ME_ID)
+    if meNick and meIdStr and meMsg then
+        local meId = tonumber(meIdStr)
+        if meId and meId ~= myId then return meId, meMsg end
+        return nil
+    end
+    local nick, idStr = text:match(SOCIAL_P_NICK_ID)
+    if nick and idStr then
+        local id = tonumber(idStr)
+        if id and id ~= myId then
+            local msg = text:match(nick .. '%[' .. idStr .. '%]:%s*(.+)$')
+            if msg then return id, msg end
+        end
+        return nil
+    end
+    local n2, msg2 = text:match(SOCIAL_P_NICK_ONLY)
+    if not (n2 and msg2 and msg2 ~= '') then n2, msg2 = text:match(SOCIAL_P_ME_LINE) end
+    if n2 and msg2 and msg2 ~= '' and resolve then
+        local id2 = resolve(n2)
+        if id2 and id2 ~= myId then return id2, msg2 end
+    end
+    return nil
+end
+
+-- ---------------------------------------------------- хоткей (PURE) ------
+function socialIsMouseVk(vk) return vk == 1 or vk == 2 or vk == 4 or vk == 5 or vk == 6 end
+
+function socialValidHotkey(vk)
+    return type(vk) == 'number' and vk >= 1 and vk <= 254 and not socialIsMouseVk(vk)
+end
+
+-- сканирование клавиш в режиме «нажмите клавишу»: возвращает найденный код
+function socialScanHotkey(down)
+    if type(down) ~= 'function' then return nil end
+    if down(0x1B) then return false end          -- ESC: отмена
+    for vk = 1, 254 do
+        if down(vk) and socialValidHotkey(vk) then return vk end
+    end
+    return nil
+end
+
+-- --------------------------------------------------- списки для таблиц ---
+function socialBaseRows(tbl)
+    local rows = {}
+    for nick, info in pairs(tbl or {}) do
+        rows[#rows + 1] = { nick = nick, date = (type(info) == 'table' and info.date) or '' }
+    end
+    table.sort(rows, function(a, b) return a.nick < b.nick end)
+    for i, r in ipairs(rows) do r.n = tostring(i) end
+    return rows
+end
+
+end)()
 
 -- <<< PURE LOGIC END
 
@@ -4014,6 +4564,9 @@ local refAutoInstall = imgui.new.bool(true)     -- v2.2.0: ставить сра
 -- локалей на функцию, а реестр нужен и кадру, и командам, и тестам.
 MODULES, MODULE_BY_ID = {}, {}
 MENU_ITEMS, MENU_IDS, STRIP_LABELS = {}, {}, {}
+-- модуль на время скриншота просит спрятать ВСЁ окно (ставит true): кадр
+-- проверяет флаг в условии отрисовки, поэтому окно не попадает в снимок
+SFNHideUI = false
 function registerModule(m)
     MODULES[#MODULES + 1] = m
     MODULE_BY_ID[m.id] = m
@@ -4034,6 +4587,8 @@ local function writeBuf(b, n, s)
     for i = 0, n - 1 do b[i] = 0 end
     for i = 1, math.min(#s, n - 1) do b[i - 1] = s:byte(i) end
 end
+
+SFNLogs.readBuf, SFNLogs.writeBuf = readBuf, writeBuf   -- для тестов вкладок
 
 local function resetAddForm()
     local t = os.date('*t')
@@ -4922,7 +5477,7 @@ local function drawAboutBody(w, h)
     end
 end
 
-do
+;(function()
 -- ============================================ МОДУЛЬ «ФОТО»: игровой слой ==
 
 local function photoRunEvents(ev)
@@ -5120,9 +5675,9 @@ registerModule({
     onLoad = photoLoad,
 })
 
-end
+end)()
 
-do
+;(function()
 -- ============================================ МОДУЛЬ «ЭФИР»: игровой слой ==
 
 local function efirSendChat(msg)
@@ -5559,6 +6114,7 @@ local function drawEfirBody(w, h, now)
             local bw = S(140)
             flowButton('efgm', 'Парень', C.info, function()
                 local p = efirGenderPending
+                gendersSet(p.nick, 'm')
                 efirGenders[p.nick] = 'm'
                 efirSaveGenders()
                 efirGenderPending = nil
@@ -5568,6 +6124,7 @@ local function drawEfirBody(w, h, now)
             imgui.SameLine()
             flowButton('efgf', 'Девушка', C.accent, function()
                 local p = efirGenderPending
+                gendersSet(p.nick, 'f')
                 efirGenders[p.nick] = 'f'
                 efirSaveGenders()
                 efirGenderPending = nil
@@ -5665,7 +6222,785 @@ registerModule({
     },
 })
 
+end)()
+
+;(function()
+-- ================================== МОДУЛЬ «СОЦОПРОС»: игровой слой =======
+
+-- объявление вперёд: socialRunChat обрабатывает ev.finish через socialRunEvents,
+-- а socialRunEvents отправляет цепочки реплик через socialRunChat
+local socialRunEvents
+
+local memoryMod = nil
+if memory then memoryMod = memory
+elseif require then local okm, m = pcall(require, 'memory'); if okm then memoryMod = m end end
+
+local function socialSay(msg) pcall(say, tostring(msg)) end
+
+local function socialSendChat(msg)
+    if sampSendChat then pcall(sampSendChat, utf8ToCp1251(tostring(msg))) end
 end
+
+-- очистка локального чата перед приветствием: обнуляем ТЕКСТЫ строк
+-- (структура чата: 300 записей по 522 байта с 306). Счётчик строк не трогаем:
+-- в оригинале вторая запись шла в chatPtr + 25562 - это уже за пределами
+-- структуры чата, то есть писали в чужую память.
+local function socialClearChat()
+    if not (sampGetChatInfoPtr and memoryMod and memoryMod.fill) then return false end
+    local ok, ptr = pcall(sampGetChatInfoPtr)
+    if not ok or not ptr or ptr == 0 then return false end
+    pcall(memoryMod.fill, ptr + 306, 0, 25200)
+    return true
+end
+
+local function socialSelfId()
+    if not (PLAYER_PED and sampGetPlayerIdByCharHandle) then return nil end
+    local ok, isPlayer, id = pcall(sampGetPlayerIdByCharHandle, PLAYER_PED)
+    if ok and isPlayer and type(id) == 'number' and id >= 0 then return id end
+    return nil
+end
+
+local function socialDetectSelf()
+    if socialMyId then return socialMyId end
+    if localNick == '' and detectLocalNick then localNick = detectLocalNick() or '' end
+    local id = socialSelfId()
+    if id and localNick ~= '' then
+        socialMyId = id
+        socialMyNick = localNick
+        socialMyDisplay = (localNick:gsub('_', ' '))
+    end
+    return socialMyId
+end
+
+-- ---------------------------------------------------- игроки в радиусе ---
+local socialCache = { list = {}, at = -1e9 }
+
+local function socialPlayersNow()
+    local myId = socialDetectSelf()
+    if not myId then return {} end
+    if not (doesCharExist and getCharCoordinates and getAllChars) then return {} end
+    local ok0, exists = pcall(doesCharExist, PLAYER_PED)
+    if not ok0 or not exists then return {} end
+    local ok1, px, py, pz = pcall(getCharCoordinates, PLAYER_PED)
+    if not ok1 or type(px) ~= 'number' then return {} end
+    local okA, chars = pcall(getAllChars)
+    if not okA or type(chars) ~= 'table' then return {} end
+    local out = {}
+    for _, handle in ipairs(chars) do
+        local okC, ex2 = pcall(doesCharExist, handle)
+        if okC and ex2 and handle ~= PLAYER_PED then
+            local okP, isP, id = pcall(sampGetPlayerIdByCharHandle, handle)
+            if okP and isP and type(id) == 'number' and id >= 0 and id ~= myId then
+                local okN, nick = pcall(sampGetPlayerNickname, id)
+                if okN and nick and nick ~= '' then
+                    local okX, x, y, z = pcall(getCharCoordinates, handle)
+                    if okX and type(x) == 'number' then
+                        local dx, dy, dz = x - px, y - py, (z or pz) - pz
+                        local dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+                        if dist <= SOCIAL_TARGET_RANGE then
+                            out[#out + 1] = { id = id, nick = nick, dist = dist }
+                        end
+                    end
+                end
+            end
+        end
+    end
+    table.sort(out, function(a, b) return a.dist < b.dist end)
+    return out
+end
+
+local function socialPlayersCached(maxDist)
+    local nowMs = os.clock() * 1000
+    if nowMs - socialCache.at > 200 then
+        local ok, list = pcall(socialPlayersNow)
+        socialCache.list = (ok and list) or {}
+        socialCache.at = nowMs
+    end
+    return socialPlayersNear(socialCache.list, maxDist or SOCIAL_RANGE, socialMyId)
+end
+
+local function socialInvalidateCache() socialCache.at = -1e9 end
+
+-- тестовый хук: в игре список приходит из getAllChars/координат, а в тестах
+-- игроков подкладывают сюда (at = 1e9 держит кэш «свежим» на всё время прогона)
+function socialSetPlayersForTests(list)
+    socialCache.list = list or {}
+    socialCache.at = 1e9
+end
+
+local function socialTargetNow()
+    return socialActualTarget(socialPlayersCached(SOCIAL_TARGET_RANGE), socialSelectedId)
+end
+
+local function socialNickById(id)
+    if sampGetPlayerNickname then
+        local ok, n = pcall(sampGetPlayerNickname, id)
+        if ok and n and n ~= '' then return cp1251ToUtf8(n) end
+    end
+    for _, p in ipairs(socialCache.list) do
+        if p.id == id then return p.nick end
+    end
+    return nil
+end
+
+local function socialIdByNick(nick)
+    for _, p in ipairs(socialCache.list) do
+        if p.nick == nick then return p.id end
+    end
+    return nil
+end
+
+-- ------------------------------------------------------------- скриншот --
+-- вызывается ТОЛЬКО из lua_thread: wait() внутри pcall ломает корутину
+-- MoonLoader (на этом горел оригинал v4.0). Окно прячем флагом SFNHideUI -
+-- кадр ядра его учитывает, поэтому в снимок не попадает ни одна вкладка.
+local function socialMakeScreenshot()
+    socialLogAdd('скриншот: ' .. SOCIAL_TIME_COMMAND .. ' -> F8')
+    SFNHideUI = true
+    wait(SOCIAL_SHOT_HIDE_WAIT)
+    socialSendChat(SOCIAL_TIME_COMMAND)
+    wait(SOCIAL_SHOT_TIME_WAIT)
+    if setVirtualKeyDown then
+        pcall(setVirtualKeyDown, 0x77, true)
+        wait(50)
+        pcall(setVirtualKeyDown, 0x77, false)
+    end
+    wait(300)
+    SFNHideUI = false
+end
+
+local function socialShot1()
+    if social.stage ~= 2.5 then return end
+    if not lua_thread then return end
+    lua_thread.create(function()
+        socialMakeScreenshot()
+        wait(500)
+        local ev = socialAfterShot1(social.targetNick)
+        if ev then socialRunEvents(ev) end
+    end)
+end
+
+-- стадия 3.5 - штатный путь, стадия 3 - вручную (если /me цели не распознан)
+local function socialShot2(forced)
+    if not (social.stage == 3.5 or social.stage == 3) then return end
+    if not lua_thread then return end
+    local nick = social.targetNick
+    lua_thread.create(function()
+        socialMakeScreenshot()
+        wait(500)
+        local ev = socialAfterShot2(nick, forced)
+        if ev then socialRunEvents(ev) end
+    end)
+end
+
+-- ------------------------------------------------------------- реплики ---
+-- список событий из PURE-слоя: одна корутина на всю цепочку, поэтому
+-- реплики идут в нужном порядке и с нужными паузами
+local function socialRunChat(ev)
+    if not ev then return end
+    socialCancelChat = false
+    if ev.clearChat then socialClearChat() end
+    local chat, waits = ev.chat or {}, ev.waits or {}
+    if #chat == 0 and not ev.save and not ev.finish then return end
+    if not lua_thread then
+        for _, line in ipairs(chat) do socialSendChat(line) end
+        return
+    end
+    lua_thread.create(function()
+        for i, line in ipairs(chat) do
+            local d = tonumber(waits[i]) or 0
+            if d > 0 then wait(d) end
+            -- финальное «Спасибо» уходит уже после socialAbort (цикл закрыт),
+            -- поэтому здесь проверяем не social.active, а отмену цикла
+            if not socialCancelChat then socialSendChat(line) end
+        end
+        socialCancelChat = false
+        if ev.save then socialSaveFile() end
+    end)
+end
+
+socialRunEvents = function(ev)
+    if not ev then return end
+    if ev.log then socialLogAdd(ev.log) end
+    if ev.say then socialSay(ev.say) end
+    if ev.save then socialSaveFile() end
+    if ev.chat or ev.clearChat or ev.finish then socialRunChat(ev) end
+end
+
+-- --------------------------------------------------------------- цикл ----
+local function socialStartCycle()
+    socialCancelChat = false
+    socialInvalidateCache()
+    socialDetectSelf()
+    local near = socialPlayersCached(SOCIAL_TARGET_RANGE)
+    local ok, err, ev = socialStart(near, socialMyNick or localNick)
+    if not ok then
+        socialSay('{FFAA00}[SFN] ' .. tostring(err))
+        return
+    end
+    if socialNeedGender then
+        imgui.OpenPopup('##socialgender')
+        return
+    end
+    if ev then socialRunChat(ev) end
+end
+
+local function socialAbortNow(reason)
+    socialCancelChat = true          -- оборвать недосланную цепочку реплик
+    socialRunEvents(socialAbort(reason))
+end
+
+local function socialConfirmAgree()
+    if social.stage ~= 1 or not social.targetNick then return end
+    socialRunChat(socialGoStage2(social.targetNick))
+end
+
+-- пол выбран: пишем в общую базу и здороваемся
+local function socialSetGender(g)
+    local nick = social.targetNick
+    socialNeedGender = false
+    if nick then
+        gendersSet(nick, g)
+        socialLogAdd('пол для ' .. nick .. ': ' .. (g == 'f' and 'девушка' or 'парень'))
+    end
+    if imgui.CloseCurrentPopup then imgui.CloseCurrentPopup() end
+    if nick and social.active and social.stage == 1 then
+        socialRunChat(socialBeginInterview(nick, socialMyNick or localNick))
+    end
+end
+
+-- ----------------------------------------------------------- события -----
+local function socialOnServer(color, text)
+    if type(text) ~= 'string' or text == '' then return end
+    if not social.active then return end
+    -- ядро уже перевело строку из CP1251 в UTF-8
+    local id, msg = socialParseLine(text, socialMyId, socialMyDisplay, socialIdByNick)
+    if not id then return end
+    socialRunEvents(socialHandleMessage(id, msg, socialNickById))
+end
+
+local function socialOnChat(playerId, text)
+    if type(text) ~= 'string' or text == '' then return end
+    if not social.active then return end
+    if socialMyId and playerId == socialMyId then return end
+    if social.targetId and playerId ~= social.targetId then return end
+    socialRunEvents(socialHandleMessage(playerId, text, socialNickById))
+end
+
+local function socialOnDisconnect(playerId)
+    if not social.active then return end
+    if social.targetId and playerId == social.targetId then
+        socialAbortNow('цель отключилась (id ' .. tostring(playerId) .. ')')
+    end
+end
+
+-- --------------------------------------------------------------- тик -----
+local socialHotkeyWaiting = false
+local socialHotkeyPrev = false
+local socialCapturedPrev = false
+
+local function socialOnTick(now)
+    if not socialMyId then socialDetectSelf() end
+    if not (isKeyDown and vkToName) then return end
+
+    if socialHotkeyWaiting then
+        local r = socialScanHotkey(function(k)
+            local ok, v = pcall(isKeyDown, k)
+            return ok and v or false
+        end)
+        if r == false then
+            socialHotkeyWaiting = false
+            socialSay('{FFAA00}[SFN] хоткей не изменён')
+            return
+        elseif r then
+            socialHotkey = r
+            socialHotkeyWaiting = false
+            socialSaveFile()
+            socialSay('{66FF66}[SFN] хоткей вкладки «Соцопрос»: ' .. tostring(vkToName(r)))
+            return
+        end
+        return
+    end
+
+    local pressed = false
+    local okp, v = pcall(isKeyDown, socialHotkey)
+    pressed = (okp and v) or false
+    if pressed then
+        if sampIsCursorActive then
+            local okc, ac = pcall(sampIsCursorActive)
+            if okc and ac then pressed = false end
+        end
+        if pressed and sampIsChatInputActive then
+            local oki, ai = pcall(sampIsChatInputActive)
+            if oki and ai then pressed = false end
+        end
+    end
+    if pressed then
+        if not socialHotkeyPrev then
+            for i, mid in ipairs(MENU_IDS) do
+                if mid == 'social' then ui.menu = i end
+            end
+            win[0] = not win[0]
+        end
+        socialHotkeyPrev = true
+    else
+        socialHotkeyPrev = false
+    end
+end
+
+-- -------------------------------------------------------- загрузка -------
+-- глобалы (не local): слой модуля обёрнут в функцию, а тестам вкладки нужно
+-- класть текст в поля ввода так же, как это делает ядро (SFNLogs.writeBuf)
+socialQuestionBuf = imgui.new.char[160]()
+socialFlyerBuf = imgui.new.char[160]()
+
+local function socialLoad()
+    socialEnsureDir()
+    socialLoadFile()
+    writeBuf(socialQuestionBuf, 160, socialQuestion)
+    writeBuf(socialFlyerBuf, 160, socialFlyerText)
+    socialSay(string.format('{66FF66}[SFN] Соцопрос: %d опросов, %d листовок. /social - вкладка',
+                            socialCount(social.surveys), socialCount(social.flyers)))
+end
+
+local function socialTerminate()
+    pcall(socialSaveFile)
+    SFNHideUI = false
+end
+
+-- ---------------------------------------------------------- вкладка ------
+local SOCIAL_PLAYERS_COLS = {
+    { key = 'nick', head = 'Игрок',       min = 150 },
+    { key = 'dist', head = 'До цели',     min = 78  },
+    { key = 'mark', head = 'Статус',      min = 128 },
+    { key = 'sex',  head = 'Пол',         min = 56  },
+}
+local SOCIAL_BASE_COLS = {
+    { key = 'n',    head = '№',     min = 34  },
+    { key = 'nick', head = 'Игрок', min = 170 },
+    { key = 'date', head = 'Дата',  min = 104 },
+}
+local SOCIAL_LOG_COLS = {
+    { key = 'ev', head = 'Событие', min = 420 },
+}
+
+-- таблица модуля: шапка закреплена, строки скроллятся внутри полосы с клипом
+-- (механика v2.2.2), ширины колонок измеряются по тексту
+local function drawSocialTable(tag, cols, rows, emptyText, remainMax, onRow)
+    local dl = winDL()
+    local w = imgui.GetContentRegionAvail().x
+    local widths, contentW = fitTableWidths(measureCols(rows, cols), cols, w)
+    local headH = S(20)
+    local hx, hy = cursorXY()
+    local cx = hx
+    for i, c in ipairs(cols) do
+        drawTextCentered(dl, cx, hy + S(3), c.head, C.textFaint, widths[i])
+        cx = cx + widths[i]
+    end
+    hline(dl, hx, hy + headH, math.max(contentW, w), C.border, S(1))
+    advance(headH)
+    local remainH = math.min(#rows * rowH + S(8), remainMax or S(200))
+    if remainH < S(60) then remainH = S(60) end
+    local bx, by = cursorXY()
+    imgui.BeginChild('##social' .. tag, V(w, remainH), false)
+    pdraw(dl.PushClipRect, dl, V(bx, by - S(1)), V(bx + math.max(contentW, w), by + remainH), true)
+    if #rows == 0 then
+        local ex, ey = cursorXY()
+        drawText(dl, ex + S(6), ey + S(6), emptyText, C.textFaint)
+        advance(lineH + S(12))
+    end
+    for idx, r in ipairs(rows) do
+        local rx, ry = cursorXY()
+        imgui.InvisibleButton('##socrow' .. tag .. idx, V(math.max(contentW, w), rowH))
+        local hovered = imgui.IsItemHovered()
+        if hovered then
+            fillRect(dl, rx, ry, math.max(contentW, w), rowH, RGBf(0.16, 0.16, 0.17))
+        end
+        local cx2 = rx
+        local ty = ry + (rowH - lineH) * 0.5
+        pushFont(fonts.cum)
+        for i, c in ipairs(cols) do
+            local col = C.text
+            if c.key == 'dist' or c.key == 'date' then col = C.textDim
+            elseif c.key == 'mark' then
+                col = (r.markCol and C[r.markCol]) or C.textFaint
+            elseif c.key == 'sex' then
+                col = (r.sex == '[Ж]' and C.accent) or (r.sex == '[М]' and C.info) or C.textFaint
+            elseif c.key == 'ev' then col = C.textDim
+            elseif c.key == 'n' then col = C.textFaint
+            end
+            if c.key == 'nick' and r.isTarget then col = C.soon end
+            drawTextCentered(dl, cx2 + S(4), ty,
+                             fitText(tostring(r[c.key] or ''), widths[i] - S(8)),
+                             col, widths[i] - S(8))
+            cx2 = cx2 + widths[i]
+        end
+        popFont(fonts.cum)
+        -- колбэк строки зовём всегда: клик проверяется внутри него, а курсор
+        -- над строкой в этот же кадр стоять не обязан (иначе выбор цели молчал)
+        if onRow then onRow(r, idx) end
+    end
+    pdraw(dl.PopClipRect, dl)
+    imgui.EndChild()
+end
+
+local function socialPlayerRows()
+    local rows = {}
+    for _, p in ipairs(socialPlayersCached(SOCIAL_TARGET_RANGE)) do
+        local mark, markCol = socialMarks(p.nick)
+        local g = gendersGet(p.nick)
+        rows[#rows + 1] = {
+            id = p.id, nick = p.nick,
+            dist = string.format('%.1f м', p.dist),
+            mark = mark, markCol = markCol,
+            sex = (g == 'f' and '[Ж]') or (g == 'm' and '[М]' or '[?]'),
+            isTarget = (social.active and social.targetId == p.id) or false,
+            near = p.dist <= SOCIAL_RANGE,
+        }
+    end
+    return rows
+end
+
+local function drawSocialBody(w, h, now)
+    local dl = winDL()
+    local cntS, cntF = socialCount(social.surveys), socialCount(social.flyers)
+
+    advance(sectionStrip(w, 'состояние опроса') + S(6))
+    local stageNeed = (social.stage == 2.5 or social.stage == 3.5)
+    local st = {
+        { 'цикл', social.active and 'идёт' or 'не идёт', social.active and C.ready or C.textDim },
+        { 'стадия', socialStageName(social.stage), stageNeed and C.soon or C.text },
+        { 'цель', social.active and (social.targetNick or '—') or '—',
+          social.active and C.soon or C.textDim },
+        { 'опросы', string.format('%d / %d', cntS, SOCIAL_LIMITS.surveys), C.info },
+        { 'листовки', string.format('%d / %d', cntF, SOCIAL_LIMITS.flyers), C.violet },
+    }
+    for i, r in ipairs(st) do
+        local x, y = anchoredRow('socst' .. i, lineH + S(10))
+        drawTextClipped(dl, x + S(6), y + S(5), r[1], C.textDim, w * 0.4)
+        local vFit = fitText(r[2], w * 0.55)
+        drawText(dl, x + w - textW(vFit) - S(6), y + S(5), vFit, r[3])
+        hline(dl, x + S(6), y + lineH + S(10), w - S(12), C.lineSoft, S(1))
+    end
+    advance(S(10))
+
+    -- ---------------------------------------------------- игроки рядом --
+    local players = socialPlayerRows()
+    local nearN = 0
+    for _, p in ipairs(players) do if p.near then nearN = nearN + 1 end end
+    advance(sectionStrip(w, string.format('игроки рядом (в %.1f м: %d)', SOCIAL_RANGE, nearN)) + S(6))
+    if #players == 0 then
+        local ex, ey = anchoredRow('socnoone', lineH + S(12))
+        drawText(dl, ex + S(6), ey + S(6),
+                 'рядом никого нет - подойдите к игроку и нажмите «Начать опрос»', C.textFaint)
+        advance(S(6))
+    else
+        drawSocialTable('p', SOCIAL_PLAYERS_COLS, players,
+                        'рядом никого нет', S(170), function(r)
+            -- IsItemClicked() уже означает «клик по строке в этом кадре»
+            if imgui.IsItemClicked and imgui.IsItemClicked() then
+                socialSelectedId = r.id
+                socialLogAdd('цель выбрана вручную: ' .. r.nick)
+            end
+        end)
+        local lx, ly = anchoredRow('socleg', lineH + S(8))
+        drawTextClipped(dl, lx + S(6), ly + S(4),
+                        'строка выбирает цель; ОПРОШЕН / ЛИСТ - уже сдавал, лучше взять другого',
+                        C.textFaint, w - S(12))
+        advance(S(8))
+    end
+
+    -- ---------------------------------------------------------- действия --
+    advance(sectionStrip(w, 'действия') + S(6))
+    if social.active then
+        local half = (w - S(12) - S(6)) / 2
+        if social.stage == 1 then
+            flowButton('socagree', 'Подтвердить согласие', C.info, socialConfirmAgree, half, S(28))
+            sameRow(S(6))
+            flowButton('socstop1', 'Стоп', C.blocked, function() socialAbortNow('вручную') end,
+                       half, S(28))
+            advance(S(6))
+        elseif social.stage == 2 then
+            local xw, yw = anchoredRow('socwait', lineH + S(12))
+            drawTextClipped(dl, xw + S(6), yw + S(6),
+                            'ждём ответ цели на вопрос недели…', C.soon, w - S(12))
+            advance(S(6))
+            flowButton('socstop2', 'Стоп', C.blocked, function() socialAbortNow('вручную') end,
+                       w - S(12), S(28))
+            advance(S(6))
+        elseif social.stage == 2.5 then
+            flowButton('socshot1', 'СКРИНШОТ №1 (соцопрос)', C.ready, socialShot1, half, S(32))
+            sameRow(S(6))
+            flowButton('socstop3', 'Стоп', C.blocked, function() socialAbortNow('вручную') end,
+                       half, S(32))
+            advance(S(6))
+        elseif social.stage == 3 then
+            flowButton('socshot2f', 'СКРИНШОТ №2 (цель уже взяла)', C.soon,
+                       function() socialShot2(true) end, w - S(12), S(32))
+            advance(S(4))
+            local xh, yh = anchoredRow('sochint', lineH + S(10))
+            drawTextClipped(dl, xh + S(6), yh + S(5),
+                            'нажмите, если цель взяла листовку, но её /me не распознано',
+                            C.textFaint, w - S(12))
+            advance(S(4))
+            flowButton('socstop4', 'Стоп', C.blocked, function() socialAbortNow('вручную') end,
+                       w - S(12), S(28))
+            advance(S(6))
+        else
+            flowButton('socshot2', 'СКРИНШОТ №2 (листовка)', C.ready,
+                       function() socialShot2(false) end, half, S(32))
+            sameRow(S(6))
+            flowButton('socstop5', 'Стоп', C.blocked, function() socialAbortNow('вручную') end,
+                       half, S(32))
+            advance(S(6))
+        end
+    else
+        flowButton('socstart', 'НАЧАТЬ ОПРОС', C.ready, socialStartCycle, w - S(12), S(30))
+        advance(S(4))
+        if socialQuestion == '' then
+            local xn, yn = anchoredRow('socnoq', lineH + S(10))
+            drawTextClipped(dl, xn + S(6), yn + S(5),
+                            'сначала задайте вопрос недели (ниже) - без него цикл не стартует',
+                            C.soon, w - S(12))
+            advance(S(4))
+        end
+    end
+    advance(S(6))
+
+    -- ------------------------------------------------------- тексты ------
+    advance(sectionStrip(w, 'вопрос недели') + S(6))
+    local xq, yq = anchoredRow('socq', lineH + S(14))
+    fillRect(dl, xq, yq, w, lineH + S(14), C.frame, S(4))
+    drawTextClipped(dl, xq + S(8), yq + S(7),
+                    socialQuestion ~= '' and socialQuestion or 'не задан',
+                    socialQuestion ~= '' and C.text or C.textFaint, w - S(16))
+    advance(S(6))
+    local qx, qy = anchoredRow('socqin', frameH)
+    drawText(dl, qx + S(2), qy + S(5), 'Новый вопрос:', C.textDim)
+    sameRow(0)
+    imgui.Dummy(V(math.max(S(2), textW('Новый вопрос:') + S(12) - 1), 1))
+    sameRow(0)
+    imgui.PushStyleColor(imgui.Col.FrameBg, C.frame)
+    imgui.PushStyleColor(imgui.Col.Text, C.text)
+    pushFont(fonts.cum)
+    imgui.PushItemWidth(math.max(S(120), w - textW('Новый вопрос:') - S(40)))
+    imgui.InputTextWithHint('##socq', 'текст вопроса для чата', socialQuestionBuf, 160,
+                            imgui.InputTextFlags and (imgui.InputTextFlags.EnterReturnsTrue or 0) or 0)
+    imgui.PopItemWidth()
+    popFont(fonts.cum)
+    imgui.PopStyleColor(2)
+    local qText = trim(readBuf(socialQuestionBuf, 160))
+    local qOver = #qText > SOCIAL_QUESTION_LIMIT
+    local qCan = qText ~= '' and not qOver and qText ~= socialQuestion
+    local xq2, yq2 = anchoredRow('socqlen', lineH + S(8))
+    drawTextClipped(dl, xq2 + S(6), yq2 + S(4),
+                    string.format('%d / %d символов (лимит строки чата SA-MP)', #qText,
+                                  SOCIAL_QUESTION_LIMIT),
+                    qOver and C.blocked or C.textFaint, w * 0.6)
+    if qText ~= '' and qText ~= socialQuestion and not qOver then
+        drawText(dl, xq2 + w - textW('не применено') - S(6), yq2 + S(4), 'не применено', C.soon)
+    end
+    advance(S(4))
+    flowButton('socqapply', 'Применить вопрос', qCan and C.info or C.textFaint,
+               qCan and function()
+                   local ok2, err2 = socialApplyQuestion(qText)
+                   if ok2 then
+                       socialSaveFile()
+                       socialLogAdd('вопрос недели обновлён')
+                       socialSay('{66FF66}[SFN] вопрос недели сохранён')
+                   else
+                       socialSay('{FF4444}[SFN] ' .. tostring(err2))
+                   end
+               end or nil,
+               textW('Применить вопрос') + S(28), S(26))
+    advance(S(10))
+
+    advance(sectionStrip(w, 'текст /me для листовки') + S(6))
+    local xf, yf = anchoredRow('socfly', lineH + S(14))
+    fillRect(dl, xf, yf, w, lineH + S(14), C.frame, S(4))
+    drawTextClipped(dl, xf + S(8), yf + S(7), '/me ' .. socialFlyerText, C.text, w - S(16))
+    advance(S(6))
+    local fx, fy = anchoredRow('socflyin', frameH)
+    drawText(dl, fx + S(2), fy + S(5), 'Новый текст:', C.textDim)
+    sameRow(0)
+    imgui.Dummy(V(math.max(S(2), textW('Новый текст:') + S(12) - 1), 1))
+    sameRow(0)
+    imgui.PushStyleColor(imgui.Col.FrameBg, C.frame)
+    imgui.PushStyleColor(imgui.Col.Text, C.text)
+    pushFont(fonts.cum)
+    imgui.PushItemWidth(math.max(S(120), w - textW('Новый текст:') - S(40)))
+    imgui.InputTextWithHint('##socfly', 'без префикса /me', socialFlyerBuf, 160,
+                            imgui.InputTextFlags and (imgui.InputTextFlags.EnterReturnsTrue or 0) or 0)
+    imgui.PopItemWidth()
+    popFont(fonts.cum)
+    imgui.PopStyleColor(2)
+    local fText = trim(readBuf(socialFlyerBuf, 160))
+    local fOver = #fText > SOCIAL_FLYER_LIMIT
+    local fCan = fText ~= '' and not fOver and fText ~= socialFlyerText
+    local xf2, yf2 = anchoredRow('socflylen', lineH + S(8))
+    drawTextClipped(dl, xf2 + S(6), yf2 + S(4),
+                    string.format('%d / %d символов (лимит строки чата SA-MP)', #fText,
+                                  SOCIAL_FLYER_LIMIT),
+                    fOver and C.blocked or C.textFaint, w * 0.6)
+    if fText ~= '' and fText ~= socialFlyerText and not fOver then
+        drawText(dl, xf2 + w - textW('не применено') - S(6), yf2 + S(4), 'не применено', C.soon)
+    end
+    advance(S(4))
+    flowButton('socflyapply', 'Применить текст', fCan and C.info or C.textFaint,
+               fCan and function()
+                   local ok2, err2 = socialApplyFlyerText(fText)
+                   if ok2 then
+                       socialSaveFile()
+                       socialLogAdd('текст /me листовки обновлён')
+                   else
+                       socialSay('{FF4444}[SFN] ' .. tostring(err2))
+                   end
+               end or nil,
+               textW('Применить текст') + S(28), S(26))
+    sameRow(S(6))
+    flowButton('socflyreset', 'Сбросить к стандартному', C.textDim, function()
+        socialFlyerText = SOCIAL_DEFAULT_FLYER_ME
+        writeBuf(socialFlyerBuf, 160, socialFlyerText)
+        socialSaveFile()
+        socialLogAdd('текст /me листовки сброшен к стандартному')
+    end, textW('Сбросить к стандартному') + S(28), S(26))
+    advance(S(10))
+
+    -- ---------------------------------------------------------- базы -----
+    advance(sectionStrip(w, 'база опросов (' .. cntS .. ')') + S(6))
+    drawSocialTable('s', SOCIAL_BASE_COLS, socialBaseRows(social.surveys),
+                    'пока никто не опрошен', S(160))
+    advance(S(10))
+    advance(sectionStrip(w, 'база листовок (' .. cntF .. ')') + S(6))
+    drawSocialTable('f', SOCIAL_BASE_COLS, socialBaseRows(social.flyers),
+                    'пока никому не выдавали листовку', S(160))
+    advance(S(8))
+    flowButton('socclear', 'Очистить базы', C.blocked, function()
+        imgui.OpenPopup('##socialconfirm')
+    end, textW('Очистить базы') + S(28), S(26))
+    advance(S(10))
+
+    -- -------------------------------------------------------- журнал -----
+    advance(sectionStrip(w, 'журнал модуля') + S(6))
+    local logs = {}
+    for i = 1, math.min(#social.log, 8) do logs[i] = { ev = social.log[i] } end
+    drawSocialTable('l', SOCIAL_LOG_COLS, logs, 'событий пока нет', S(130))
+
+    -- -------------------------------------------------------- модалки ----
+    if socialNeedGender then imgui.OpenPopup('##socialgender') end
+    if imgui.BeginPopupModal('##socialgender', nil, imgui.WindowFlags.AlwaysAutoResize) then
+        imgui.Text('Укажите пол игрока:')
+        imgui.TextColored(C.info, '   ' .. tostring(social.targetNick or ''))
+        imgui.Dummy(V(1, S(10)))
+        local bw = S(140)
+        flowButton('socgm', 'Парень', C.info, function() socialSetGender('m') end, bw, S(28))
+        imgui.SameLine()
+        flowButton('socgf', 'Девушка', C.accent, function() socialSetGender('f') end, bw, S(28))
+        imgui.Dummy(V(1, S(6)))
+        -- подсказка в две строки: регион модалки узкий (400 px), длинная
+        -- строка вылезала за край окна - это ловит тест вёрстки
+        imgui.TextColored(C.textFaint, 'Пол сохранится в общую базу')
+        imgui.TextColored(C.textFaint, 'и больше не спросит.')
+        imgui.EndPopup()
+    end
+
+    if imgui.BeginPopupModal('##socialconfirm', nil, imgui.WindowFlags.AlwaysAutoResize) then
+        imgui.Text('Очистить базы опросов и листовок?')
+        imgui.Dummy(V(1, S(10)))
+        flowButton('socyes', 'Да, очистить', C.blocked, function()
+            social.surveys = {}
+            social.flyers = {}
+            socialSaveFile()
+            socialLogAdd('базы очищены')
+            imgui.CloseCurrentPopup()
+            socialSay('{FFAA00}[SFN] базы опросов и листовок очищены')
+        end, textW('Да, очистить') + S(24), S(26))
+        imgui.SameLine()
+        flowButton('socno', 'Отмена', C.text, function()
+            imgui.CloseCurrentPopup()
+        end, textW('Отмена') + S(24), S(26))
+        imgui.EndPopup()
+    end
+end
+
+local function measureSocial()
+    local nP = #socialPlayerRows()
+    local nS, nF = socialCount(social.surveys), socialCount(social.flyers)
+    local nL = math.min(#social.log, 8)
+    local function tableH(n, cap)
+        return S(20) + math.max(S(60), math.min(n, cap) * rowH + S(8)) + S(10)
+    end
+    return (S(20) + S(6)) * 6                       -- шесть полос разделов
+         + 5 * (lineH + S(10)) + S(10)              -- строки состояния
+         + tableH(nP, 6) + lineH + S(16)            -- игроки рядом + легенда
+         + 2 * (S(32) + S(8))                       -- действия
+         + 2 * (lineH + S(14) + frameH + lineH + S(20) + S(30))  -- два редактора
+         + tableH(nS, 5) + tableH(nF, 5)            -- базы
+         + S(26) + S(10)                            -- очистка
+         + tableH(nL, 5)                            -- журнал
+         + S(40)
+end
+
+local function socialSettings(add)
+    add('kv', 'цикл', social.active and ('идёт: ' .. socialStageName(social.stage)) or 'не идёт',
+        social.active and C.soon or C.textDim)
+    add('kv', 'хоткей вкладки', vkToName(socialHotkey), C.textDim)
+    add('kv', 'опрошено', string.format('%d / %d', socialCount(social.surveys),
+                                        SOCIAL_LIMITS.surveys), C.text)
+    add('kv', 'выдано листовок', string.format('%d / %d', socialCount(social.flyers),
+                                               SOCIAL_LIMITS.flyers), C.text)
+    add('kv', 'полов в общей базе', tostring(gendersCount()), C.textDim)
+    add('kv', 'радиус поиска цели', string.format('%.1f м', SOCIAL_RANGE), C.textDim)
+    add('hint', '   вопрос недели и текст /me листовки редактируются на вкладке «Соцопрос»')
+    add('hint', '   база: ' .. SOCIAL_PATH)
+    add('hint', '   общая база полов: ' .. GENDERS_SHARED)
+    add('button', 'ОЧИСТИТЬ БАЗЫ СОЦОПРОСА', C.blocked, function()
+        social.surveys = {}
+        social.flyers = {}
+        socialSaveFile()
+        socialLogAdd('базы очищены из настроек')
+        say('{FFAA00}[SFN] базы опросов и листовок очищены')
+    end)
+end
+
+registerModule({
+    id = 'social', title = 'Соцопрос', strip = 'Соцопрос и листовки',
+    hint = 'социальный опрос игроков и раздача листовок: цикл, скриншоты, базы',
+    order = 30,
+    draw = drawSocialBody,
+    measure = measureSocial,
+    width = function() return S(680) end,
+    settings = socialSettings,
+    onServerMessage = socialOnServer,
+    onChatMessage = socialOnChat,
+    onPlayerDisconnect = socialOnDisconnect,
+    onTick = socialOnTick,
+    onLoad = socialLoad,
+    onTerminate = socialTerminate,
+    commands = {
+        ['social'] = function()
+            for i, mid in ipairs(MENU_IDS) do
+                if mid == 'social' then ui.menu = i end
+            end
+            win[0] = not win[0]
+        end,
+        ['socialstart'] = function() socialStartCycle() end,
+        ['socialstop'] = function() socialAbortNow('вручную') end,
+        ['socialreset'] = function()
+            social.surveys = {}
+            social.flyers = {}
+            socialSaveFile()
+            socialLogAdd('базы очищены вручную')
+            socialSay('{66FF66}[SFN] базы опросов и листовок очищены')
+        end,
+        ['genders'] = function()
+            socialSay(string.format('{66FF66}[SFN] база полов: %d записей (%s)',
+                                    gendersCount(), GENDERS_SHARED))
+        end,
+    },
+})
+
+end)()
 
 -- ================================================== МОДАЛКИ ==============
 
@@ -6389,7 +7724,7 @@ imgui.OnInitialize(function()
     if not okFonts then fonts.ok = false end
 end)
 
-imgui.OnFrame(function() return win[0] end, function(self)
+imgui.OnFrame(function() return win[0] and not SFNHideUI end, function(self)
     refreshScale()
     lineH  = (imgui.CalcTextSize('Ay').y) or S(14)
     rowH   = math.floor(lineH + S(8))

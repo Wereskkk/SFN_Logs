@@ -2,6 +2,13 @@
 -- Возвращает таблицу: win, rects, texts, errors.
 return function(tabName, nrows, dpi, longNicks, dismissed, hoverRow, menuRow, membersBlock)
   local mock = require 'tests.mock_imgui'
+  -- Часы сцены заморожены: превью перегенерируются в CI на каждый прогон, и
+  -- без фиксированного времени файлы отличались бы побайтово каждый раз
+  -- (даты в журнале, «осталось дней», штамп времени в журнале модулей).
+  local realTime, realDate = os.time, os.date
+  local SCENE_NOW = 1790000000
+  os.time = function() return SCENE_NOW end
+  os.date = function(fmt, t) return realDate(fmt, t or SCENE_NOW) end
   mock.runInit()
   loadConfig(); loadRoster(); SFNLogs.setVisible(true)
   -- сцены рендера идут одна за другой и делят /tmp/sfntest_ui: журнал
@@ -104,6 +111,7 @@ return function(tabName, nrows, dpi, longNicks, dismissed, hoverRow, menuRow, me
     }
   end
 
+  os.time, os.date = realTime, realDate
   local out = { win = { w = info.win.x, h = info.win.y }, rects = {}, texts = {}, errors = {} }
   for _, rc in ipairs(mock.st.rects) do
     if rc.frame == mock.st.frames then

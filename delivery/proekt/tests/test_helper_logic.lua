@@ -43,9 +43,9 @@ local function section(t) print('\n== ' .. t) end
 -- ============================================ ЯДРО ПОМОЩНИКА ==============
 section('helper: идентификация ядра')
 ok('имя скрипта - SFN Helper', full:find("script_name('SFN Helper')", 1, true) ~= nil)
-ok('версия шапки и литерал совпадают (0.1.0)',
-   full:find("script_version('0.1.0')", 1, true) ~= nil
-   and full:find("SFN_VERSION_STR = '0.1.0'", 1, true) ~= nil)
+ok('версия шапки и литерал совпадают (0.2.0)',
+   full:find("script_version('0.2.0')", 1, true) ~= nil
+   and full:find("SFN_VERSION_STR = '0.2.0'", 1, true) ~= nil)
 ok('апдейтер берёт SFN_Helper.lua',
    full:find('raw.githubusercontent.com/Wereskkk/SFN_Logs/main/SFN_Helper.lua', 1, true) ~= nil)
 ok('папка данных - SFNHelper', full:find(".. '\\\\SFNHelper'", 1, true) ~= nil)
@@ -82,9 +82,9 @@ local function fakeScript(name, ver)
     while #head < 60100 do head = head .. '\n-- x' end
     return head
 end
-eq('валидация принимает Helper новее', validateScriptText(fakeScript('SFN Helper', '9.9.9'), '0.1.0'), '9.9.9')
+eq('валидация принимает Helper новее', validateScriptText(fakeScript('SFN Helper', '9.9.9'), '0.2.0'), '9.9.9')
 ok('валидация отвергает чужое имя (SFN Logs)',
-   select(1, validateScriptText(fakeScript('SFN Logs', '9.9.9'), '0.1.0')) == nil)
+   select(1, validateScriptText(fakeScript('SFN Logs', '9.9.9'), '0.2.0')) == nil)
 
 -- ============================================ ФОТО: ДИАЛОГ ПАПАРАЦЦИ =======
 section('фото: колонка «Фото» в заказ-диалоге')
@@ -397,6 +397,365 @@ writeFile(EFIR_WORDS, 'return { "привет", "мир" }')
 local wl = efirLoadWordList(EFIR_WORDS)
 ok('слова загружены верхним регистром', wl ~= nil and wl[1] == 'ПРИВЕТ' and wl[2] == 'МИР',
    wl and wl[1])
+
+-- ============================================ ПОЛ: ОБЩАЯ БАЗА ==============
+section('пол: общая база и перенос из старых файлов')
+
+local function gendersReset()
+    GENDERS = {}
+    GENDERS_LOADED = false
+    GENDERS_MIGRATED = false
+end
+
+-- общий файл пуст, оба старых существуют: при первом чтении они сливаются
+writeFile(GENDERS_SHARED, '')
+writeFile(GENDERS_LEGACY_EFIR, '{"Efir_Girl":"f","Efir_Boy":"m"}')
+writeFile(GENDERS_LEGACY_PHOTO, '{"Soc_Girl":"f","Efir_Boy":"m"}')
+gendersReset()
+eq('перенос дал три записи (дубль не умножается)', gendersCount(), 3)
+eq('пол из базы эфира', gendersGet('Efir_Girl'), 'f')
+eq('пол из базы соцопроса', gendersGet('Soc_Girl'), 'f')
+ok('перенос записал общий файл', (readFile(GENDERS_SHARED) or ''):find('Efir_Girl', 1, true) ~= nil)
+
+-- запись идёт в общий файл, старые не переписываются
+gendersSet('New_Player', 'f')
+eq('новая запись видна', gendersGet('New_Player'), 'f')
+ok('общий файл сохранён', (readFile(GENDERS_SHARED) or ''):find('New_Player', 1, true) ~= nil)
+eq('старая база эфира не переписана', readFile(GENDERS_LEGACY_EFIR),
+   '{"Efir_Girl":"f","Efir_Boy":"m"}')
+
+-- общая база переживает перезагрузку
+gendersReset()
+eq('после перечитанного файла записей столько же', gendersCount(), 4)
+eq('мусорные значения не принимаются', gendersSet('X_Player', 'x'), false)
+eq('пустой ник не принимается', gendersSet('', 'm'), false)
+
+-- «Эфир» читает общую базу, а при пустой - прежний свой файл
+efirGenders = {}
+efirLoadGenders()
+eq('эфир видит общий пол', efirGenders['Efir_Girl'], 'f')
+writeFile(EFIR_GENDERS, '{"Legacy_Girl":"f","Bad":123}')
+gendersReset()
+writeFile(GENDERS_SHARED, '{}')
+efirGenders = {}
+efirLoadGenders()
+eq('эфир: откат к старой базе, если общая пуста', efirGenders['Legacy_Girl'], 'f')
+eq('эфир: мусор отброшен', efirGenders['Bad'], nil)
+
+-- ============================================ СОЦОПРОС: ФАЙЛ БАЗЫ ========
+section('соцопрос: файл базы старого скрипта')
+
+local function socialResetState()
+    social.active, social.stage = false, 0
+    social.targetId, social.targetNick = nil, nil
+    social.surveys, social.flyers, social.log = {}, {}, {}
+    socialQuestion, socialFlyerText = '', SOCIAL_DEFAULT_FLYER_ME
+    socialHotkey, socialSelectedId, socialNeedGender = SOCIAL_HOTKEY_DEFAULT, nil, false
+end
+
+-- файл, сохранённый отдельным скриптом sfn_social.lua v4.0 (его prettyJson)
+writeFile(SOCIAL_PATH, table.concat({
+    '{',
+    '    "flyers": {',
+    '        "Anna_Malboro": {',
+    '            "date": "2026-09-20"',
+    '        }',
+    '    },',
+    '    "hotkey": 122,',
+    '    "log": [',
+    '        "[12:00:00] старая запись"',
+    '    ],',
+    '    "surveys": {',
+    '        "Jonny_Wilde": {',
+    '            "date": "2026-09-21"',
+    '        }',
+    '    },',
+    '    "surveyQuestion": "Как вам погода?",',
+    '    "flyerMeText": "протянул листовку"',
+    '}',
+}, '\n'))
+socialResetState()
+socialLoadFile()
+eq('опросы прочитаны', social.surveys['Jonny_Wilde'] and social.surveys['Jonny_Wilde'].date,
+   '2026-09-21')
+eq('листовки прочитаны', social.flyers['Anna_Malboro'] and social.flyers['Anna_Malboro'].date,
+   '2026-09-20')
+eq('вопрос недели прочитан', socialQuestion, 'Как вам погода?')
+eq('текст /me прочитан', socialFlyerText, 'протянул листовку')
+eq('хоткей F11 заменён на F10 (F11 занят «Эфиром»)', socialHotkey, SOCIAL_HOTKEY_DEFAULT)
+
+socialSaveFile()
+local rawSoc = readFile(SOCIAL_PATH) or ''
+ok('сохранение держит формат старого скрипта',
+   rawSoc:find('"surveys"', 1, true) ~= nil and rawSoc:find('"flyerMeText"', 1, true) ~= nil)
+socialResetState()
+socialLoadFile()
+eq('сохранённое переживает перезагрузку', social.surveys['Jonny_Wilde'] ~= nil, true)
+ok('журнал из файла перечитан',
+   (function()
+       for _, l in ipairs(social.log) do
+           if tostring(l):find('старая запись', 1, true) then return true end
+       end
+       return false
+   end)(), table.concat(social.log, ' | '))
+
+-- битый файл не роняет модуль
+writeFile(SOCIAL_PATH, '{ не json')
+socialResetState()
+socialLoadFile()
+eq('битый файл: базы пустые', socialCount(social.surveys), 0)
+eq('битый файл: вопрос пустой', socialQuestion, '')
+
+-- ============================================ СОЦОПРОС: ТЕКСТЫ ============
+section('соцопрос: вопрос недели и текст листовки')
+
+socialResetState()
+eq('пустой вопрос не применяется', select(1, socialApplyQuestion('   ')), false)
+eq('длинный вопрос не применяется',
+   select(1, socialApplyQuestion(string.rep('а', SOCIAL_QUESTION_LIMIT + 1))), false)
+eq('вопрос в лимите применяется', select(1, socialApplyQuestion('Как вам наш эфир?')), true)
+eq('вопрос сохранён в состоянии', socialQuestion, 'Как вам наш эфир?')
+eq('пробелы по краям обрезаны', select(1, socialApplyQuestion('  Тест  ')) and socialQuestion,
+   'Тест')
+eq('пустой текст /me не применяется', select(1, socialApplyFlyerText('')), false)
+eq('текст /me в лимите применяется', select(1, socialApplyFlyerText('протянул листовку')), true)
+eq('длинный текст /me не применяется',
+   select(1, socialApplyFlyerText(string.rep('б', SOCIAL_FLYER_LIMIT + 1))), false)
+
+-- ============================================ СОЦОПРОС: СОГЛАСИЕ И ПОЛ ====
+section('соцопрос: согласие, пол и реплики')
+
+ok('«да» - согласие', socialAgree('Да') == true)
+ok('«окей» - согласие', socialAgree('ОКЕЙ') == true)
+ok('«конечно, давай» - согласие', socialAgree('Конечно, давай') == true)
+ok('«нет» - не согласие', socialAgree('Нет, извини') == false)
+ok('пустая строка - не согласие', socialAgree('') == false)
+
+gendersReset()
+GENDERS_LOADED, GENDERS_MIGRATED = true, true
+GENDERS = {}
+eq('пол по умолчанию мужской', socialGenderOf('Someone'), 'm')
+eq('формы по умолчанию', socialForms('Someone').citizen, 'Гражданин')
+gendersSet('Girl_Nick', 'f')
+eq('женский пол из общей базы', socialGenderOf('Girl_Nick'), 'f')
+eq('формы для девушки', socialForms('Girl_Nick').citizen, 'Гражданка')
+eq('«взяла» для девушки', socialForms('Girl_Nick').took, 'взяла')
+
+local ev = socialBeginInterview('Girl_Nick', 'Jonny_Wilde')
+ok('приветствие очищает локальный чат', ev.clearChat == true)
+eq('первой строкой идёт /clearchat', ev.chat[1], '/clearchat')
+ok('приветствие учитывает пол',
+   ev.chat[2]:find('Гражданка, здравствуйте', 1, true) == 1, ev.chat[2])
+ok('в приветствии есть ник ведущего', ev.chat[2]:find('Jonny Wilde', 1, true) ~= nil, ev.chat[2])
+ok('пауза после /clearchat', ev.waits[1] == SOCIAL_CLEAR_DELAY)
+
+ev = socialBeginInterview('Boy_Nick', 'Jonny_Wilde')
+ok('для парня - «Гражданин»', ev.chat[2]:find('Гражданин, здравствуйте', 1, true) == 1)
+
+ev = socialGiveFlyer('Girl_Nick')
+eq('реплик листовки четыре', #ev.chat, 4)
+ok('текст /me без префикса в третьей реплике',
+   ev.chat[3] == '/me ' .. socialFlyerText, ev.chat[3])
+ok('взяла - женская форма', ev.chat[4]:find('взяла листовку', 1, true) ~= nil, ev.chat[4])
+
+-- ============================================ СОЦОПРОС: ЦИКЛ ===============
+section('соцопрос: цикл, стадии, скриншоты')
+
+local near = { { id = 7, nick = 'Girl_Nick', dist = 1.2 },
+               { id = 9, nick = 'Boy_Nick', dist = 2.5 } }
+
+socialResetState()
+socialQuestion = ''            -- секция текстов выше вопрос уже задала
+local okS, errS = socialStart(near, 'Jonny_Wilde')
+eq('без вопроса недели цикл не стартует', okS, false)
+eq('причина отказа понятна', errS, 'сначала задайте вопрос недели')
+
+socialApplyQuestion('Как вам наш город?')
+okS, errS, ev = socialStart(near, '')
+eq('пустой ник ведущего - отказ', okS, false)
+eq('причина: ник', errS, 'ваш ник ещё не определён')
+eq('цикл не запущен', social.active, false)
+
+okS, errS, ev = socialStart({}, 'Jonny_Wilde')
+eq('без игроков в радиусе - отказ', okS, false)
+ok('причина упоминает радиус', tostring(errS):find('3.0', 1, true) ~= nil, errS)
+
+okS, errS, ev = socialStart(near, 'Jonny_Wilde')
+eq('пол известен - цикл стартовал', okS, true)
+eq('стадия 1', social.stage, 1)
+eq('цель - ближайшая', social.targetNick, 'Girl_Nick')
+eq('id цели', social.targetId, 7)
+ok('приветствие отправляется сразу', type(ev) == 'table' and ev.chat ~= nil)
+ok('запись в журнале', social.log[1]:find('старт', 1, true) ~= nil, social.log[1])
+
+okS, errS = socialStart(near, 'Jonny_Wilde')
+eq('повторный старт отклонён', errS, 'цикл уже идёт')
+
+-- согласие словом из чата
+ev = socialHandleMessage(7, 'да, конечно', function() return 'Girl_Nick' end)
+eq('после согласия стадия 2', social.stage, 2)
+ok('вопрос недели уходит в чат', ev ~= nil and ev.chat[1] == 'Как вам наш город?')
+eq('чужое сообщение игнорируется', socialHandleMessage(11, 'да', function() return 'X' end), nil)
+
+-- ответ на вопрос
+ev = socialHandleMessage(7, 'Мне нравится ваш город', function() return 'Girl_Nick' end)
+eq('стадия 2.5 - ждём скрин №1', social.stage, 2.5)
+ok('опрос записан в базу', social.surveys['Girl_Nick'] ~= nil)
+eq('дата опроса - сегодня', social.surveys['Girl_Nick'].date, socialToday())
+ok('событие требует сохранения', ev ~= nil and ev.save == true)
+eq('повторно на 2.5 не принимаем', socialHandleMessage(7, 'ещё', function() return 'Girl_Nick' end),
+   nil)
+
+-- скриншот №1 -> листовка
+ev = socialAfterShot1('Girl_Nick')
+eq('стадия 3 - ждём /me листовки', social.stage, 3)
+ok('реплики листовки отправлены', ev ~= nil and #ev.chat == 4)
+eq('скрин №1 на чужой стадии не срабатывает', socialAfterShot1('Girl_Nick'), nil)
+
+-- «взяла» засчитывается и без слова «листовку»
+ev = socialHandleMessage(7, 'взяла', function() return 'Girl_Nick' end)
+eq('стадия 3.5 - ждём скрин №2', social.stage, 3.5)
+ok('листовка записана', social.flyers['Girl_Nick'] ~= nil)
+eq('не «взял» - не засчитываем', socialHandleMessage(7, 'спасибо', function() return 'Girl_Nick' end),
+   nil)
+
+-- скриншот №2 завершает цикл
+ev = socialAfterShot2('Girl_Nick', false)
+ok('финальная реплика «Спасибо»', ev ~= nil and ev.chat[1] == 'Спасибо')
+eq('цикл завершён', social.active, false)
+eq('стадия сброшена', social.stage, 0)
+
+-- ручной зачёт листовки на стадии 3
+socialResetState()
+socialApplyQuestion('Вопрос')
+socialStart(near, 'Jonny_Wilde')
+social.stage, social.targetNick, social.targetId = 3, 'Boy_Nick', 9
+ev = socialAfterShot2('Boy_Nick', true)
+ok('листовка зачтена вручную', social.flyers['Boy_Nick'] ~= nil)
+eq('цикл после ручного зачёта закрыт', social.active, false)
+ok('в журнале про ручной зачёт',
+   (function()
+       for _, l in ipairs(social.log) do
+           if tostring(l):find('вручную', 1, true) then return true end
+       end
+       return false
+   end)())
+
+-- прерывание
+socialResetState()
+socialAbort('сброс перед тестом')
+social.stage, social.active, social.targetNick = 2, true, 'Girl_Nick'
+ev = socialAbort('вручную')
+eq('после прерывания цикл выключен', social.active, false)
+ok('прерывание требует сохранения', ev ~= nil and ev.save == true)
+ok('причина в журнале', social.log[1]:find('вручную', 1, true) ~= nil, social.log[1])
+eq('прерывание неидущего цикла - ничего', socialAbort('x'), nil)
+
+-- вопрос о поле, если он неизвестен
+gendersReset()
+GENDERS_LOADED, GENDERS_MIGRATED = true, true
+GENDERS = {}
+socialResetState()
+socialApplyQuestion('Вопрос недели')
+okS, errS, ev = socialStart(near, 'Jonny_Wilde')
+eq('цикл стартовал', okS, true)
+eq('ждём выбор пола', socialNeedGender, true)
+eq('реплик пока нет', ev, nil)
+eq('стадия 1', social.stage, 1)
+
+-- ============================================ СОЦОПРОС: РАЗБОР ЧАТА ========
+section('соцопрос: разбор строк сервера')
+
+socialResetState()
+eq('неидущий цикл строки не разбирает', socialParseLine('Nick[7]: да', 15, 'My_Nick'), nil)
+social.active, social.stage, social.targetId = true, 1, 7
+
+local resolve = function(nick) if nick == 'Anna_Malboro' then return 264 end return nil end
+local id, msg = socialParseLine('Girl_Nick[7]: да, конечно', 15, 'My_Nick', resolve)
+eq('чат с ID: игрок', id, 7)
+eq('чат с ID: текст', msg, 'да, конечно')
+
+id, msg = socialParseLine('Girl_Nick[7] взяла листовку', 15, 'My_Nick', resolve)
+eq('/me с ID: игрок', id, 7)
+eq('/me с ID: текст', msg, 'взяла листовку')
+
+id, msg = socialParseLine('Anna_Malboro: привет', 15, 'My_Nick', resolve)
+eq('чат без ID: игрок найден по списку', id, 264)
+eq('чат без ID: текст', msg, 'привет')
+
+eq('своё сообщение не разбираем', socialParseLine('My_Nick[15]: да', 15, 'My_Nick', resolve), nil)
+eq('своё /me не разбираем',
+   socialParseLine('My_Nick[15] взял листовку', 15, 'My_Nick', resolve), nil)
+eq('неизвестный ник без ID игнорируем',
+   socialParseLine('Someone: да', 15, 'My_Nick', resolve), nil)
+eq('пустая строка игнорируется', socialParseLine('', 15, 'My_Nick', resolve), nil)
+
+-- строка сразу двигает стадию
+social.stage = 1
+socialRunEventsCheck = socialHandleMessage(socialParseLine('Girl_Nick[7]: ага', 15, 'My_Nick',
+                                                           resolve),
+                                           'да', function() return 'Girl_Nick' end)
+eq('согласие из строки сервера подняло стадию', social.stage, 2)
+
+-- ============================================ СОЦОПРОС: СПИСКИ И ХОТКЕЙ ===
+section('соцопрос: игроки рядом, цель, базы, хоткей')
+
+local list = { { id = 1, nick = 'Far_Player', dist = 9.0 },
+               { id = 2, nick = 'Near_Player', dist = 1.5 },
+               { id = 15, nick = 'My_Nick', dist = 0.1 } }
+local sel = socialPlayersNear(list, SOCIAL_RANGE, 15)
+eq('в радиусе 3 м только один (я исключён)', #sel, 1)
+eq('это ближний игрок', sel[1].nick, 'Near_Player')
+local wide = socialPlayersNear(list, SOCIAL_TARGET_RANGE, 15)
+eq('в радиусе 10 м двое', #wide, 2)
+ok('сортировка по дистанции', wide[1].dist <= wide[2].dist)
+eq('список без дистанции отброшен',
+   #socialPlayersNear({ { id = 3, nick = 'No_Dist' } }, 10, 15), 0)
+eq('пустой ник отброшен', #socialPlayersNear({ { id = 4, nick = '', dist = 1 } }, 10, 15), 0)
+
+eq('цель по умолчанию - ближайший', socialActualTarget(wide, nil).nick, 'Near_Player')
+eq('выбранный вручную важнее', socialActualTarget(wide, 1).nick, 'Far_Player')
+socialSelectedId = 999
+eq('несуществующий выбор сбрасывается',
+   socialActualTarget(wide, socialSelectedId).nick, 'Near_Player')
+eq('сброс записан в состояние', socialSelectedId, nil)
+
+local mark, col = socialMarks('Nobody')
+eq('метка нового игрока пустая', mark, '')
+eq('цвет нового - обычный текст', col, 'text')
+social.surveys = { S = { date = '2026-09-29' } }
+social.flyers = { F = { date = '2026-09-29' } }
+eq('опрошен', (socialMarks('S')), 'ОПРОШЕН')
+eq('цвет опрошенного', select(2, socialMarks('S')), 'soon')
+eq('листовка', (socialMarks('F')), 'ЛИСТ')
+social.surveys.B, social.flyers.B = { date = 'x' }, { date = 'x' }
+eq('опрошен + листовка', (socialMarks('B')), 'ОПРОШЕН + ЛИСТ')
+eq('цвет - красный', select(2, socialMarks('B')), 'blocked')
+social.surveys, social.flyers = {}, {}
+
+local rows = socialBaseRows({ Anna = { date = '2026-09-28' }, Bob = { date = '2026-09-29' } })
+eq('строк в базе две', #rows, 2)
+eq('сортировка по нику', rows[1].nick, 'Anna')
+eq('нумерация', rows[2].n, '2')
+eq('пустая база', #socialBaseRows({}), 0)
+
+eq('стадия 2.5 названа', socialStageName(2.5), 'ЖДЁМ СКРИН №1 (соцопрос)')
+eq('неидущий цикл', socialStageName(0), 'не идёт')
+eq('неизвестная стадия', socialStageName(9), '?')
+
+ok('F10 - допустимый хоткей', socialValidHotkey(0x79) == true)
+ok('мышь не берём', socialValidHotkey(1) == false and socialValidHotkey(2) == false)
+ok('0 и 300 вне диапазона', socialValidHotkey(0) == false and socialValidHotkey(300) == false)
+eq('ESC отменяет выбор', socialScanHotkey(function(k) return k == 0x1B end), false)
+eq('нажатая клавиша становится хоткеем', socialScanHotkey(function(k) return k == 0x79 end),
+   0x79)
+eq('ничего не нажато - nil', socialScanHotkey(function() return false end), nil)
+
+-- журнал модуля держит 20 последних событий
+social.log = {}
+for i = 1, 25 do socialLogAdd('событие ' .. i) end
+eq('журнал ограничен 20 записями', #social.log, 20)
+ok('свежие сверху', social.log[1]:find('событие 25', 1, true) ~= nil, social.log[1])
 
 -- ============================================================ ИТОГ =======
 print(string.format('\n%d passed, %d failed', passed, failed))

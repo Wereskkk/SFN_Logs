@@ -90,13 +90,16 @@ SFNLogs.setVisible(true)
 
 -- ============================================ МЕНЮ СОБРАНО =================
 section('helper: меню из системных вкладок и модулей')
-ok('порядок вкладок: Журнал, Поиск, Фото, Эфир, Настройки, О скрипте',
-   table.concat(MENU_IDS, ',') == 'journal,search,photo,efir,settings,about',
+ok('порядок вкладок: Журнал, Поиск, Фото, Эфир, Соцопрос, Настройки, О скрипте',
+   table.concat(MENU_IDS, ',') == 'journal,search,photo,efir,social,settings,about',
    table.concat(MENU_IDS, ','))
 ok('полосы разделов собраны', table.concat(STRIP_LABELS, ',')
-   == 'Журнал состава,Поиск по игроку,База фотографа,Помощник эфира,Настройки,О скрипте',
+   == 'Журнал состава,Поиск по игроку,База фотографа,Помощник эфира,'
+      .. 'Соцопрос и листовки,Настройки,О скрипте',
    table.concat(STRIP_LABELS, ','))
 ok('модуль photo в реестре', MODULE_BY_ID['photo'] ~= nil)
+ok('модуль social в реестре', MODULE_BY_ID['social'] ~= nil)
+ok('модуль efir в реестре', MODULE_BY_ID['efir'] ~= nil)
 
 SFNLogs.setMenu(1)
 local infoJ = checkFrame('журнал helper-а')
@@ -215,6 +218,177 @@ ok('/efir открывает вкладку Эфир', SFNLogs.ui.menu == 4, SFN
 efirRunning, efirScores, efirAccessGranted = false, {}, false
 SFNLogs.setMenu(1)
 
+-- ============================================ ВКЛАДКА СОЦОПРОС =============
+section('helper: вкладка «Соцопрос»')
+
+-- состояние модуля и общий пол - под контролем теста
+GENDERS = {}
+GENDERS_LOADED, GENDERS_MIGRATED = true, true
+social.active, social.stage = false, 0
+social.targetId, social.targetNick = nil, nil
+social.surveys, social.flyers, social.log = {}, {}, {}
+socialQuestion, socialFlyerText = '', SOCIAL_DEFAULT_FLYER_ME
+socialSelectedId, socialNeedGender = nil, false
+socialSetPlayersForTests({})
+
+SFNLogs.setMenu(5)
+checkFrame('соцопрос: пусто')
+ok('соцопрос: полоса состояния', hasText('состояние опроса') ~= nil)
+ok('соцопрос: стадия «не идёт»', hasText('не идёт') ~= nil)
+ok('соцопрос: кнопка старта', hasText('НАЧАТЬ ОПРОС') ~= nil)
+ok('соцопрос: подсказка про вопрос недели', hasText('вопрос недели') ~= nil)
+ok('соцопрос: пустой список игроков', hasText('рядом никого нет') ~= nil)
+ok('соцопрос: полосы баз', hasText('база опросов (0)') ~= nil
+   and hasText('база листовок (0)') ~= nil)
+ok('соцопрос: журнал модуля', hasText('журнал модуля') ~= nil)
+ok('соцопрос: значка «‹» нет', (function()
+    for _, x in ipairs(lastTexts()) do if tostring(x.text) == '<' then return false end end
+    return true
+end)())
+
+-- игроки рядом: метки статуса, пол, отметка цели
+social.surveys['Jonny_Wilde'] = { date = '2026-09-29' }
+socialSetPlayersForTests({
+    { id = 7,  nick = 'Anna_Malboro', dist = 1.2 },
+    { id = 9,  nick = 'Jonny_Wilde',  dist = 2.5 },
+    { id = 11, nick = 'Far_Player',   dist = 8.4 },
+})
+gendersSet('Anna_Malboro', 'f')
+checkFrame('соцопрос: игроки рядом')
+ok('соцопрос: ник в списке', hasText('Anna_Malboro') ~= nil)
+ok('соцопрос: дистанция', hasText('1.2 м') ~= nil)
+ok('соцопрос: метка «ОПРОШЕН»', hasText('ОПРОШЕН') ~= nil)
+ok('соцопрос: пол [Ж]', hasText('[Ж]') ~= nil)
+ok('соцопрос: неизвестный пол [?]', hasText('[?]') ~= nil)
+ok('соцопрос: счётчик игроков в радиусе', hasText('в 3.0 м: 2') ~= nil)
+ok('соцопрос: легенда про выбор цели', hasText('строка выбирает цель') ~= nil)
+
+-- клик по строке выбирает цель вручную
+checkFrame('соцопрос: выбор цели кликом', { clicks = { ['##socrowp2'] = true } })
+ok('соцопрос: цель выбрана', socialSelectedId ~= nil, tostring(socialSelectedId))
+
+-- стадии: кнопки меняются вместе с конечным автоматом
+social.active, social.stage, social.targetNick, social.targetId = true, 1, 'Anna_Malboro', 7
+checkFrame('соцопрос: стадия 1')
+ok('соцопрос: ждём согласие', hasText('ждём согласие') ~= nil)
+ok('соцопрос: кнопка подтверждения', hasText('Подтвердить согласие') ~= nil)
+ok('соцопрос: кнопка стоп', hasText('Стоп') ~= nil)
+
+social.stage = 2.5
+checkFrame('соцопрос: стадия 2.5')
+ok('соцопрос: ждём скрин №1', hasText('ЖДЁМ СКРИН №1 (соцопрос)') ~= nil)
+ok('соцопрос: кнопка скриншота №1', hasText('СКРИНШОТ №1 (соцопрос)') ~= nil)
+
+social.stage = 3
+checkFrame('соцопрос: стадия 3')
+ok('соцопрос: ждём /me листовки', hasText('ждём /me листовки') ~= nil)
+ok('соцопрос: ручной зачёт листовки', hasText('СКРИНШОТ №2 (цель уже взяла)') ~= nil)
+
+social.stage = 3.5
+checkFrame('соцопрос: стадия 3.5')
+ok('соцопрос: ждём скрин №2', hasText('ЖДЁМ СКРИН №2 (листовка)') ~= nil)
+ok('соцопрос: кнопка скриншота №2', hasText('СКРИНШОТ №2 (листовка)') ~= nil)
+
+social.active, social.stage = false, 0
+
+-- редакторы вопроса и текста /me
+SFNLogs.writeBuf(socialQuestionBuf, 160, 'Как вам наш эфир?')
+SFNLogs.writeBuf(socialFlyerBuf, 160, 'протянул листовку')
+checkFrame('соцопрос: редакторы текста')
+ok('соцопрос: вопрос не применён', hasText('не применено') ~= nil)
+ok('соцопрос: счётчик символов', hasText('символов (лимит строки чата SA-MP)') ~= nil)
+ok('соцопрос: текущий текст /me виден',
+   hasText('/me ' .. SOCIAL_DEFAULT_FLYER_ME) ~= nil)
+
+checkFrame('соцопрос: применение вопроса',
+           { clicks = { ['Применить вопрос##socqapply'] = true } })
+ok('соцопрос: вопрос применён', socialQuestion == 'Как вам наш эфир?', socialQuestion)
+
+checkFrame('соцопрос: применение текста /me',
+           { clicks = { ['Применить текст##socflyapply'] = true } })
+ok('соцопрос: текст /me применён', socialFlyerText == 'протянул листовку', socialFlyerText)
+
+checkFrame('соцопрос: сброс текста /me',
+           { clicks = { ['Сбросить к стандартному##socflyreset'] = true } })
+ok('соцопрос: текст сброшен к стандартному', socialFlyerText == SOCIAL_DEFAULT_FLYER_ME, socialFlyerText)
+
+-- модалка пола открывается, когда пол цели неизвестен
+social.active, social.stage, social.targetNick, social.targetId = true, 1, 'Linnea_Korhonen', 21
+socialNeedGender = true
+local infoG = checkFrame('соцопрос: модалка пола', { popups = { ['##socialgender'] = true } })
+ok('соцопрос: модалка просит пол', hasText('Укажите пол игрока:') ~= nil)
+ok('соцопрос: ник цели в модалке', hasText('Linnea_Korhonen') ~= nil)
+ok('соцопрос: кнопки парень/девушка',
+   hasText('Парень') ~= nil and hasText('Девушка') ~= nil)
+checkFrame('соцопрос: выбор пола',
+           { popups = { ['##socialgender'] = true },
+             clicks = { ['Девушка##socgf'] = true } })
+ok('соцопрос: пол записан в общую базу', gendersGet('Linnea_Korhonen') == 'f', gendersGet('Linnea_Korhonen'))
+ok('соцопрос: модалка закрыта', socialNeedGender == false, socialNeedGender)
+social.active, social.stage, socialNeedGender = false, 0, false
+
+-- команды модуля
+ok('команда /social зарегистрирована', __cmds['social'] ~= nil)
+SFNLogs.setMenu(1)
+SFNLogs.setVisible(false)
+__cmds['social']()
+ok('/social открывает окно на вкладке Соцопрос',
+   SFNLogs.isOpen() == true and SFNLogs.ui.menu == 5, SFNLogs.ui.menu)
+__cmds['social']()
+ok('/social повторно закрывает окно', SFNLogs.isOpen() == false)
+SFNLogs.setVisible(true)
+
+social.surveys['X_Player'] = { date = '2026-09-29' }
+social.flyers['X_Player'] = { date = '2026-09-29' }
+__cmds['socialreset']()
+ok('/socialreset чистит опросы', socialCount(social.surveys) == 0, socialCount(social.surveys))
+ok('/socialreset чистит листовки', socialCount(social.flyers) == 0, socialCount(social.flyers))
+ok('/genders зарегистрирована', __cmds['genders'] ~= nil)
+
+-- личный хоткей модуля (F10) и его отличие от хоткея «Эфира» (F11)
+ok('хоткей соцопроса по умолчанию F10', socialHotkey == 0x79, socialHotkey)
+ok('хоткей соцопроса не совпадает с эфиром', socialHotkey ~= efirCfg.hotkey)
+SFNLogs.setMenu(1)
+SFNLogs.setVisible(false)
+isKeyDown = function(k) return k == socialHotkey end
+local modS = MODULE_BY_ID['social']
+ok('у модуля «Соцопрос» есть onTick', type(modS.onTick) == 'function')
+ok('у модуля «Соцопрос» есть onTerminate', type(modS.onTerminate) == 'function')
+local okT, errT = pcall(modS.onTick, os.time())
+ok('onTick соцопроса не падает', okT, tostring(errT))
+ok('хоткей открывает окно', SFNLogs.isOpen() == true)
+ok('хоткей ставит вкладку Соцопрос', SFNLogs.ui.menu == 5, SFNLogs.ui.menu)
+isKeyDown = nil
+
+-- очистка баз с подтверждением
+SFNLogs.setMenu(5)
+social.surveys['Y_Player'] = { date = '2026-09-29' }
+checkFrame('соцопрос: подтверждение очистки',
+           { clicks = { ['Очистить базы##socclear'] = true } })
+checkFrame('соцопрос: модалка очистки', { popups = { ['##socialconfirm'] = true } })
+ok('соцопрос: модалка спрашивает', hasText('Очистить базы опросов и листовок?') ~= nil)
+checkFrame('соцопрос: очистка',
+           { popups = { ['##socialconfirm'] = true },
+             clicks = { ['Да, очистить##socyes'] = true } })
+ok('соцопрос: базы очищены', socialCount(social.surveys) == 0, socialCount(social.surveys))
+
+-- порядок в меню и подпись в сайдбаре
+ok('соцопрос: вкладка в сайдбаре', (function()
+    for _, x in ipairs(MENU_ITEMS) do if x == 'Соцопрос' then return true end end
+    return false
+end)())
+checkFrame('соцопрос: полоса раздела')
+ok('соцопрос: полоса «Соцопрос и листовки»', hasText('Соцопрос и листовки') ~= nil)
+
+-- убираем за собой: дальше тесты настроек и «О скрипте»
+social.active, social.stage = false, 0
+social.targetId, social.targetNick = nil, nil
+social.surveys, social.flyers, social.log = {}, {}, {}
+socialQuestion, socialFlyerText = '', SOCIAL_DEFAULT_FLYER_ME
+socialSelectedId, socialNeedGender = nil, false
+socialSetPlayersForTests({})
+SFNLogs.setMenu(1)
+
 -- ============================================ ДИСПЕТЧЕР ONTICK ==============
 section('helper: диспетчер onTick (личный хоткей модуля)')
 local modE = MODULE_BY_ID['efir']
@@ -261,7 +435,7 @@ SFNLogs.setVisible(true)        -- кадр рисуется только при
 
 -- ============================================ НАСТРОЙКИ И О СКРИПТЕ ========
 section('helper: настройки и справка содержат модуль')
-SFNLogs.setMenu(5)
+SFNLogs.setMenu(6)
 checkFrame('настройки helper-а')
 ok('настройки: секция модуля Фото', hasText('Фото') ~= nil)
 ok('настройки: лимит игроков', hasText('лимит игроков в неделю') ~= nil)
@@ -270,11 +444,13 @@ ok('настройки: секция модуля Эфир', hasText('призо
 ok('настройки: статус доступа эфира', hasText('закрыт') ~= nil or hasText('разрешён') ~= nil)
 ok('настройки: системные секции на месте', hasText('Окно') ~= nil and hasText('Служебное') ~= nil)
 
-SFNLogs.setMenu(6)
+SFNLogs.setMenu(7)
 checkFrame('о скрипте helper-а')
 ok('о скрипте: список модулей', hasText('Модули помощника') ~= nil)
 ok('о скрипте: модуль Фото описан', hasText('недельные лимиты фото') ~= nil)
 ok('о скрипте: модуль Эфир описан', hasText('викторины в эфире') ~= nil)
+ok('о скрипте: модуль Соцопрос описан',
+   hasText('социальный опрос игроков и раздача листовок') ~= nil)
 
 -- ============================================ КОМАНДА /sfnhelper ===========
 section('helper: команда /sfnhelper')
@@ -289,7 +465,7 @@ __cmds['sfnhelper']('photo')
 __cmds['sfnhelper']('')
 
 -- значка «‹» нет ни в одной вкладке
-for tab = 1, 6 do
+for tab = 1, #MENU_IDS do
     SFNLogs.setMenu(tab)
     checkFrame('вкладка ' .. tab .. ' без стрелочки')
     ok('вкладка ' .. tab .. ': нет значка «‹»',
