@@ -1,5 +1,5 @@
 script_name('SFN Helper')
-script_version('0.3.1')
+script_version('0.3.2')
 script_author('San Fierro News')
 
 -- Версия одна на весь файл и объявлена в самом верху.
@@ -10,11 +10,11 @@ script_author('San Fierro News')
 -- поэтому SFN_VERSION_STR читался там как глобальный nil, и любая проверка
 -- обновления отвечала «версия не новее текущей nil». Теперь литерал ровно
 -- один, и он обязан совпадать со script_version() (проверяется тестом).
-SFN_VERSION_STR = '0.3.1'
+SFN_VERSION_STR = '0.3.2'
 
 --[[
     SFN Helper: журнал состава San Fierro News и модули редакции в одном
-    окне с вкладками. Ядро и вкладка «Журнал»/«Поиск» - из SFN Logs 2.2.4;
+    окне с вкладками. Ядро и вкладка «Журнал»/«Поиск» - из SFN Logs 2.2.5;
     модули (Фото, далее Эфир и Соцопрос) подключаются реестром MODULES.
 
     По каждому игроку хранит: ник, кто принял, дату принятия, текущий ранг и
@@ -2409,7 +2409,10 @@ function efirNormalizeAnswer(s)
     return s
 end
 
-function efirFormatNick(nick) return (tostring(nick or '')):gsub('_', ' ') end
+-- ОДНО возвращаемое значение: gsub отдаёт ещё и счётчик замен, и в позиции
+-- последнего аргумента вызова тот уходил бы в чужой параметр (так ломался
+-- gsub('{NICK}', efirFormatNick(...)): счётчик 0 воспринимался как лимит замен)
+function efirFormatNick(nick) return ((tostring(nick or '')):gsub('_', ' ')) end
 
 function efirFormatTime(seconds)
     local h = math.floor(seconds / 3600)
@@ -2442,7 +2445,11 @@ function efirApplyPlaceholders(str, extra)
     if not str then return '' end
     extra = extra or {}
     local r = str
-    r = r:gsub('{NICK}', efirFormatNick(extra.nick or 'ведущий'))
+    -- {NICK} - это ник ведущего (в оригинале myDisplayNick); вызывающие могут
+    -- передать своего extra.nick (приветствие при выдаче доступа)
+    local who = extra.nick
+    if who == nil then who = (localNick ~= nil and localNick ~= '') and localNick or 'ведущий' end
+    r = r:gsub('{NICK}', (efirFormatNick(who)))
     r = r:gsub('{FRACTION}', 'San Fierro News')
     r = r:gsub('{RANK}', 'Ведущий')
     r = r:gsub('{TYPE}', tostring(efirType or 'Математика'))
@@ -2706,6 +2713,14 @@ function efirApplyCorrect(nick, id)
 end
 
 -- Топ с группировкой по баллам: возвращает группы {score, rank, nicks={...}}
+-- очистка базы баллов: кнопка «Очистить базу» в оригинальном скрипте была,
+-- при переносе в 0.1.0 потерялась (баг-репорт 01.10.2026)
+function efirResetScores()
+    for k in pairs(efirScores) do efirScores[k] = nil end
+    efirFirstAnswer = nil
+    return true
+end
+
 function efirTopScoreGroups()
     local sorted = {}
     for nick, info in pairs(efirScores) do
@@ -6264,6 +6279,29 @@ local function drawEfirBody(w, h, now)
     advance(S(10))
     advance(sectionStrip(w, 'счёт эфира') + S(6))
     drawEfirTable(efirScoreRows(), S(220))
+    advance(S(8))
+    flowButton('efclear', 'Очистить базу баллов', C.blocked, function()
+        imgui.OpenPopup('##efirclear')
+    end, textW('Очистить базу баллов') + S(28), S(26))
+    if imgui.BeginPopupModal('##efirclear', nil, imgui.WindowFlags.AlwaysAutoResize) then
+        -- вопрос в две строки: одна длинная вылезала за содержимое модалки
+        -- (правило вёрстки: текст в модалках держим коротким)
+        imgui.Text('Очистить базу баллов')
+        imgui.Text('участников эфира?')
+        imgui.Dummy(V(1, S(10)))
+        flowButton('efclearyes', 'Да, очистить', C.blocked, function()
+            efirResetScores()
+            efirSaveScores()
+            efirSay((efirTexts and efirTexts.system.base_cleared)
+                    or efirDefaultTexts().system.base_cleared)
+            imgui.CloseCurrentPopup()
+        end, textW('Да, очистить') + S(24), S(26))
+        imgui.SameLine()
+        flowButton('efclearno', 'Отмена', C.text, function()
+            imgui.CloseCurrentPopup()
+        end, textW('Отмена') + S(24), S(26))
+        imgui.EndPopup()
+    end
     advance(S(10))
     advance(sectionStrip(w, 'речи и служебное') + S(8))
     local third = (w - S(12) - 2 * S(6)) / 3
@@ -6292,6 +6330,7 @@ local function measureEfir()
     end
     return base + lineH + S(12) + 2 * (S(28) + S(8)) + S(30)
         + math.min(#efirScoreRows(), 6) * rowH + S(60)
+        + S(26) + S(8)                       -- кнопка «Очистить базу баллов»
         + 2 * (S(28) + S(6)) + S(40)
 end
 
@@ -6418,6 +6457,8 @@ local function socialPlayersNow()
             local okP, isP, id = pcall(sampGetPlayerIdByCharHandle, handle)
             if okP and isP and type(id) == 'number' and id >= 0 and id ~= myId then
                 local okN, nick = pcall(sampGetPlayerNickname, id)
+                -- ники из SAMP приходят в CP1251, как и весь чат
+                if okN and nick and nick ~= '' then nick = cp1251ToUtf8(nick) end
                 if okN and nick and nick ~= '' then
                     local okX, x, y, z = pcall(getCharCoordinates, handle)
                     if okX and type(x) == 'number' then
@@ -7585,7 +7626,10 @@ local function bodyDesired(now, rows, widths)
         return strip + sh + S(24)
     end
     local mod = MODULE_BY_ID[mid]
-    if mod and mod.measure then return strip + mod.measure() + S(24) end
+    if mod and mod.measure then
+        local mok, mh = pcall(mod.measure)
+        if mok and type(mh) == 'number' then return strip + mh + S(24) end
+    end
     return strip + S(330)
 end
 
@@ -7610,7 +7654,10 @@ local function computeLayout(now)
         bodyW = math.max(measureSettings(settingsRows()), S(560))
     else
         local mod = MODULE_BY_ID[midW]
-        if mod and mod.width then bodyW = math.max(mod.width(), S(560))
+        bodyW = S(620)          -- значение по умолчанию: замер мог упасть
+        if mod and mod.width then
+            local wok, ww = pcall(mod.width)
+            if wok and type(ww) == 'number' then bodyW = math.max(ww, S(560)) end
         else bodyW = S(620) end
     end
 
@@ -7736,7 +7783,29 @@ local function drawFrame(now)
         drawAboutBody(innerW, contentH)
     else
         local mod = MODULE_BY_ID[mid]
-        if mod and mod.draw then mod.draw(innerW, contentH, now) end
+        if mod and mod.draw then
+            -- v0.3.2: вкладка модуля рисуется под СОБСТВЕННЫМ pcall. Падение
+            -- одной вкладки больше не роняет весь кадр: сайдбар и прочие
+            -- вкладки остаются рабочими, пользователь всегда может уйти с
+            -- ошибки и увидеть её причину (баг-репорт 01.10.2026: после
+            -- ошибки кадр падал целиком и окно намертво застревало в
+            -- аварийном текстовом режиме).
+            local mok, merr = pcall(mod.draw, innerW, contentH, now)
+            if not mok then
+                SFNLogs.moduleErrors = SFNLogs.moduleErrors or {}
+                SFNLogs.moduleErrors[mid] = tostring(merr)
+                local dl = winDL()
+                local mx, my = cursorXY()
+                drawText(dl, mx + S(6), my + S(6),
+                         'Вкладка «' .. tostring(mod.title or mid) .. '» не отрисовалась:', C.blocked)
+                drawTextClipped(dl, mx + S(6), my + lineH + S(10), tostring(merr), C.textDim, innerW - S(12))
+                drawTextClipped(dl, mx + S(6), my + 2 * lineH + S(14),
+                                'остальные вкладки работают; подробности: /sfnhelper ui',
+                                C.textFaint, innerW - S(12))
+            else
+                if SFNLogs.moduleErrors then SFNLogs.moduleErrors[mid] = nil end
+            end
+        end
     end
     imgui.EndChild()
 
@@ -7757,7 +7826,7 @@ end
 local function drawFallback(now)
     imgui.SetNextWindowSize(V(S(900), S(480)), imgui.Cond.FirstUseEver)
     if not imgui.Begin('SFN Helper', win) then imgui.End(); return end
-    imgui.TextColored(C.accent, 'SFN Logs — журнал состава San Fierro News')
+    imgui.TextColored(C.accent, 'SFN Helper — журнал состава и модули редакции')
     local st = SFNLogs.api.status()
     imgui.TextColored(C.textDim, string.format('API: %s  очередь: %d  транспорт: %s',
         st.err or 'ок', st.queue, st.transport))
@@ -7863,10 +7932,23 @@ imgui.OnFrame(function() return win[0] and not SFNHideUI end, function(self)
     else
         local ok, err = pcall(drawFrame, os.time())
         if not ok then
-            dl_ok = false
-            SFNLogs.lastUiError = tostring(err)
-            logEvent('интерфейс переключён в упрощённый режим: ' .. tostring(err))
+            -- v2.2.5: ошибка кадра НЕ запирает окно в аварийном режиме.
+            -- dl_ok означает только «в этой сборке mimgui нет DrawList-примитивов»
+            -- и ставится исключительно зондом pdraw; падение кадра (например,
+            -- из-за одной вкладки) показывает упрощённый вид СЕЙЧАС, а следующий
+            -- кадр снова пробует обычный интерфейс: причина ушла - окно ожило.
+            -- Раньше здесь было «dl_ok = false», и после первой же ошибки окно
+            -- навсегда оставалось текстовым списком без вкладок и сайдбара -
+            -- из него нельзя было выйти (баг-репорт 01.10.2026: «открылись
+            -- логи, из них обратно выйти нельзя»).
+            local msg = tostring(err)
+            if SFNLogs.lastUiError ~= msg then
+                logEvent('кадр интерфейса не отрисовался, показан упрощённый: ' .. msg)
+            end
+            SFNLogs.lastUiError = msg
             pcall(drawFallback, os.time())
+        else
+            SFNLogs.lastUiError = nil    -- кадр ожил: ошибка больше не активна
         end
     end
     popTheme()

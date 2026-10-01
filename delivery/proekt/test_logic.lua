@@ -1028,8 +1028,13 @@ ok('исходник: значок «‹» не рисуется', full:find("'A
 ok('исходник: команда выгрузки зарегистрирована',
    full:find("sampRegisterChatCommand('sfnlogexport'", 1, true) ~= nil)
 ok('исходник: версии в шапке и внутри совпадают',
-   full:find("script_version('2.2.4')", 1, true) ~= nil
-   and full:find("SFN_VERSION_STR = '2.2.4'", 1, true) ~= nil)
+   full:find("script_version('2.2.5')", 1, true) ~= nil
+   and full:find("SFN_VERSION_STR = '2.2.5'", 1, true) ~= nil)
+-- v2.2.5: ошибка кадра больше не запирает окно в аварийном режиме навсегда
+ok('исходник: ошибка кадра не защёлкивает dl_ok',
+   full:find("dl_ok = false\n            SFNLogs.lastUiError", 1, true) == nil)
+ok('исходник: успешный кадр сбрасывает lastUiError',
+   full:find("SFNLogs.lastUiError = nil", 1, true) ~= nil)
 -- v2.2.3: в 2.1.0 подписка на чат потерялась, и /members не перехватывался в
 -- игре при зелёных тестах (они зовут membersFeed напрямую). Больше нельзя.
 ok('исходник: подписка sampev.onServerMessage на месте',
@@ -1119,7 +1124,7 @@ end
 section('v2.2.0: validateScriptText — скачанный файл проверяется до замены')
 -- SFN_VERSION_STR объявлен вне PURE-секции (в ImGui-части), поэтому здесь
 -- версия задаётся явно; её совпадение с исходником проверяется в страховках.
-local CUR = '2.2.4'
+local CUR = '2.2.5'
 ok('текущая версия скрипта совпадает с ожидаемой в тесте',
    full:find("script_version('" .. CUR .. "')", 1, true) ~= nil)
 
@@ -1317,8 +1322,8 @@ ok('исходник: состояние пишется в update.json',
 ok('исходник: saveConfig вызывается из настроек окна',
    full:find('saveConfig()', 1, true) ~= nil)
 ok('исходник: версия шапки и литерал совпадают (2.2.3)',
-   full:find("script_version('2.2.4')", 1, true) ~= nil
-   and full:find("SFN_VERSION_STR = '2.2.4'", 1, true) ~= nil)
+   full:find("script_version('2.2.5')", 1, true) ~= nil
+   and full:find("SFN_VERSION_STR = '2.2.5'", 1, true) ~= nil)
 local _, nVerLit = full:gsub("SFN_VERSION_STR%s*=%s*'[%d%.]+'", '')
 eq('исходник: литерал версии ровно один (иначе разъедется)', nVerLit, 1)
 local posTop = full:find("SFN_VERSION_STR = '", 1, true)

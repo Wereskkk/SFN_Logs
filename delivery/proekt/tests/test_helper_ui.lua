@@ -389,6 +389,80 @@ socialSelectedId, socialNeedGender = nil, false
 socialSetPlayersForTests({})
 SFNLogs.setMenu(1)
 
+-- ================================== ИЗОЛЯЦИЯ ОШИБОК ВКЛАДОК ==================
+section('helper: сбой вкладки не запирает окно (баг-репорт 01.10.2026)')
+-- Баг: ошибка внутри одной вкладки роняла ВЕСЬ кадр, OnFrame latch-ил
+-- dl_ok=false, и окно навсегда оставалось аварийным текстовым списком без
+-- сайдбара - «открылись логи, из них обратно выйти нельзя». Теперь вкладка
+-- модуля рисуется под собственным pcall: панель с причиной на месте ошибки,
+-- сайдбар и прочие вкладки живы, после починки модуля всё само восстанавливается.
+local modP = MODULE_BY_ID['photo']
+local origPhotoDraw = modP.draw
+SFNLogs.setVisible(true)
+SFNLogs.setMenu(3)
+modP.draw = function() error('искусственный сбой', 0) end
+checkFrame('изоляция: кадр со сломанной вкладкой')
+ok('изоляция: заголовок панели «не отрисовалась»',
+   hasText('Вкладка «Фото» не отрисовалась:') ~= nil)
+ok('изоляция: причина сбоя показана', hasText('искусственный сбой') ~= nil)
+ok('изоляция: подсказка про остальные вкладки',
+   hasText('остальные вкладки работают; подробности: /sfnhelper ui') ~= nil)
+ok('изоляция: сайдбар жив - вкладка «О скрипте» видна', hasText('О скрипте') ~= nil)
+ok('изоляция: окно НЕ провалилось в аварийный текстовый режим',
+   hasText('+ Добавить') == nil)
+ok('изоляция: ошибка учтена в moduleErrors',
+   SFNLogs.moduleErrors ~= nil and SFNLogs.moduleErrors['photo'] == 'искусственный сбой',
+   SFNLogs.moduleErrors and SFNLogs.moduleErrors['photo'])
+ok('изоляция: lastUiError не выставлен (каркас кадра цел)',
+   SFNLogs.lastUiError == nil, tostring(SFNLogs.lastUiError))
+
+-- со сломанной вкладкой можно уйти на другую - она рисуется нормально
+SFNLogs.setMenu(1)
+checkFrame('изоляция: журнал после сбоя вкладки Фото')
+ok('изоляция: полоса журнала на месте', hasText('Журнал состава') ~= nil)
+ok('изоляция: журнал тоже без аварийного режима', hasText('+ Добавить') == nil)
+
+-- причина устранена - вкладка оживает, следы ошибки стираются
+modP.draw = origPhotoDraw
+SFNLogs.setMenu(3)
+checkFrame('изоляция: вкладка Фото после починки')
+ok('изоляция: moduleErrors очищен',
+   SFNLogs.moduleErrors == nil or SFNLogs.moduleErrors['photo'] == nil,
+   SFNLogs.moduleErrors and SFNLogs.moduleErrors['photo'])
+ok('изоляция: панель ошибки исчезла', hasText('не отрисовалась') == nil)
+SFNLogs.setMenu(1)
+
+-- ================================== ЭФИР: ОЧИСТКА БАЗЫ =======================
+section('helper: «Эфир» - очистка базы баллов (баг-репорт 01.10.2026)')
+-- В оригинальном скрипте эфира кнопка «Очистить базу» была; при переносе в
+-- SFN_Helper она потерялась, и список участников нельзя было обнулить.
+-- Возвращена как чистая функция efirResetScores + кнопка с подтверждением.
+efirAccessGranted = true
+SFNLogs.setMenu(4)
+efirScores = { Jonny_Wilde = { id = 248, score = 2 }, Anna_Malboro = { id = 264, score = 1 } }
+checkFrame('эфир-очистка: кнопка в вкладке',
+           { clicks = { ['Очистить базу баллов##efclear'] = true } })
+ok('эфир-очистка: кнопка «Очистить базу баллов» видна',
+   hasText('Очистить базу баллов') ~= nil)
+checkFrame('эфир-очистка: модалка подтверждения', { popups = { ['##efirclear'] = true } })
+ok('эфир-очистка: модалка спрашивает (в две строки)',
+   hasText('Очистить базу баллов') ~= nil and hasText('участников эфира?') ~= nil)
+ok('эфир-очистка: есть «Да, очистить» и «Отмена»',
+   hasText('Да, очистить') ~= nil and hasText('Отмена') ~= nil)
+checkFrame('эфир-очистка: отмена сохраняет баллы',
+           { popups = { ['##efirclear'] = true },
+             clicks = { ['Отмена##efclearno'] = true } })
+ok('эфир-очистка: после отмены база цела',
+   efirScores['Jonny_Wilde'] ~= nil and efirScores['Jonny_Wilde'].score == 2,
+   efirScores['Jonny_Wilde'] and efirScores['Jonny_Wilde'].score)
+checkFrame('эфир-очистка: подтверждение очищает базу',
+           { popups = { ['##efirclear'] = true },
+             clicks = { ['Да, очистить##efclearyes'] = true } })
+ok('эфир-очистка: база баллов пуста', next(efirScores) == nil,
+   tostring(efirScores['Jonny_Wilde'] and efirScores['Jonny_Wilde'].score))
+efirScores = {}
+SFNLogs.setMenu(1)
+
 -- ============================================ ДИСПЕТЧЕР ONTICK ==============
 section('helper: диспетчер onTick (личный хоткей модуля)')
 local modE = MODULE_BY_ID['efir']

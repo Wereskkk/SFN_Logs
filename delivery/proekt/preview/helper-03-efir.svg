@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1086" height="881" viewBox="-28 -28 1086 881" font-family="Trebuchet MS, Verdana, sans-serif">
-<rect x="-28" y="-28" width="1086.0" height="881.0" fill="#08090c"/>
-<rect x="7" y="11" width="1030.0" height="825.0" rx="10" fill="#000" opacity="0.5"/>
-<rect x="52.0" y="70.0" width="176.0" height="783.0" rx="0.0" fill="#17171a" opacity="1.000"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1086" height="915" viewBox="-28 -28 1086 915" font-family="Trebuchet MS, Verdana, sans-serif">
+<rect x="-28" y="-28" width="1086.0" height="915.0" fill="#08090c"/>
+<rect x="7" y="11" width="1030.0" height="859.0" rx="10" fill="#000" opacity="0.5"/>
+<rect x="52.0" y="70.0" width="176.0" height="817.0" rx="0.0" fill="#17171a" opacity="1.000"/>
 <circle cx="84.5" cy="97.6" r="18.4" fill="#cc314e" opacity="1.000"/>
 <circle cx="81.3" cy="79.5" r="3.2" fill="#cc314e" opacity="1.000"/>
 <circle cx="67.5" cy="99.0" r="2.6" fill="#cc314e" opacity="1.000"/>
@@ -39,15 +39,16 @@
 <defs><linearGradient id="g5" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e54c4c" stop-opacity="0.098"/><stop offset="0.5" stop-color="#666666" stop-opacity="0.000"/><stop offset="1" stop-color="#e54c4c" stop-opacity="0.098"/></linearGradient></defs>
 <rect x="228.0" y="460.0" width="815.0" height="20.0" rx="0.0" fill="url(#g5)"/>
 <line x1="228.0" y1="512.0" x2="1053.0" y2="512.0" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<rect x="228.5" y="660.5" width="253.6" height="25.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
 <defs><linearGradient id="g6" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e54c4c" stop-opacity="0.098"/><stop offset="0.5" stop-color="#666666" stop-opacity="0.000"/><stop offset="1" stop-color="#e54c4c" stop-opacity="0.098"/></linearGradient></defs>
-<rect x="228.0" y="662.0" width="815.0" height="20.0" rx="0.0" fill="url(#g6)"/>
-<rect x="228.5" y="696.5" width="262.7" height="27.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
-<rect x="498.2" y="696.5" width="262.7" height="27.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
-<rect x="767.8" y="696.5" width="262.7" height="27.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<rect x="228.0" y="708.0" width="815.0" height="20.0" rx="0.0" fill="url(#g6)"/>
 <rect x="228.5" y="742.5" width="262.7" height="27.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
 <rect x="498.2" y="742.5" width="262.7" height="27.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
 <rect x="767.8" y="742.5" width="262.7" height="27.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
-<rect x="228.5" y="788.5" width="802.0" height="27.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<rect x="228.5" y="788.5" width="262.7" height="27.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<rect x="498.2" y="788.5" width="262.7" height="27.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<rect x="767.8" y="788.5" width="262.7" height="27.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<rect x="228.5" y="834.5" width="802.0" height="27.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
 <line x1="1033.5" y1="45.5" x2="1042.5" y2="52.5" stroke="#5b6b77" stroke-opacity="1.000" stroke-width="1.6"/>
 <line x1="1042.5" y1="45.5" x2="1033.5" y2="52.5" stroke="#5b6b77" stroke-opacity="1.000" stroke-width="1.6"/>
 <text x="114.0" y="95.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">SFN Helper</text>
@@ -58,8 +59,8 @@
 <text x="83.9" y="356.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Соцопрос</text>
 <text x="78.2" y="404.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Настройки</text>
 <text x="79.1" y="452.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">О скрипте</text>
-<text x="60.0" y="826.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v0.3.1</text>
-<text x="60.0" y="844.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">Данные: ок</text>
+<text x="60.0" y="860.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v0.3.2</text>
+<text x="60.0" y="878.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">Данные: ок</text>
 <text x="236.0" y="85.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Помощник эфира</text>
 <text x="236.0" y="119.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">состояние эфира</text>
 <text x="234.0" y="154.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">эфир</text>
@@ -95,12 +96,13 @@
 <text x="259.0" y="655.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">4</text>
 <text x="336.5" y="655.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Garik_Grifon</text>
 <text x="498.1" y="655.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">1 балл</text>
-<text x="236.0" y="677.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">речи и служебное</text>
-<text x="280.2" y="715.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Стартовая речь</text>
-<text x="589.2" y="715.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Правила</text>
-<text x="870.4" y="715.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Финал</text>
-<text x="298.4" y="761.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Итоги в чат</text>
-<text x="589.2" y="761.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Реклама</text>
-<text x="853.1" y="761.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Скриншот</text>
-<text x="549.8" y="807.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Завершить эфир</text>
+<text x="242.0" y="678.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Очистить базу баллов</text>
+<text x="236.0" y="723.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">речи и служебное</text>
+<text x="280.2" y="761.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Стартовая речь</text>
+<text x="589.2" y="761.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Правила</text>
+<text x="870.4" y="761.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Финал</text>
+<text x="298.4" y="807.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Итоги в чат</text>
+<text x="589.2" y="807.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Реклама</text>
+<text x="853.1" y="807.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Скриншот</text>
+<text x="549.8" y="853.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">Завершить эфир</text>
 </svg>

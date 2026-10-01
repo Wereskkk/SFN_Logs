@@ -801,6 +801,35 @@ ok('свой журнал уцелел', (readFile(myRoster) or ''):find('My_Own
 os.remove(myRoster); os.remove(myCfg); os.remove(PATHS.export)
 os.remove(legacyRoster); os.remove(legacyCfg)
 
+-- ============================================ ЭФИР: {NICK} И ОЧИСТКА =======
+section('эфир: плейсхолдеры и очистка базы (баг-репорты 01.10.2026)')
+
+-- gsub возвращает ДВА значения; efirFormatNick обязан отдавать одно, иначе
+-- счётчик замен уезжал в аргумент n внешнего gsub и {NICK} не подставлялся
+local one, two = efirFormatNick('Jonny_Wilde')
+eq('formatNick: одно значение', one, 'Jonny Wilde')
+eq('formatNick: второго значения нет', two, nil)
+
+local savedNick = localNick
+localNick = 'Jonny_Wilde'
+eq('{NICK} берёт ник ведущего, как оригинал',
+   efirApplyPlaceholders('С вами я - {NICK} и вашей любимой музыкой'),
+   'С вами я - Jonny Wilde и вашей любимой музыкой')
+eq('{NICK} с extra.nick переопределяется',
+   efirApplyPlaceholders('Привет, {NICK}!', { nick = 'Anna_Malboro' }),
+   'Привет, Anna Malboro!')
+localNick = ''
+eq('{NICK} без ника ведущего - «ведущий»',
+   efirApplyPlaceholders('С вами я - {NICK}'), 'С вами я - ведущий')
+ok('{NICK} не остаётся литералом',
+   efirApplyPlaceholders('текст {NICK} текст'):find('{NICK}', 1, true) == nil)
+localNick = savedNick
+
+-- очистка базы баллов: кнопка была в оригинале, в 0.1.0 потерялась
+efirScores = { A = { id = 1, score = 5 }, B = { id = 2, score = 3 } }
+eq('resetScores очищает базу', efirResetScores() and next(efirScores), nil)
+eq('после очистки групп нет', #efirTopScoreGroups(), 0)
+
 -- ============================================================ ИТОГ =======
 print(string.format('\n%d passed, %d failed', passed, failed))
 os.exit(failed == 0 and 0 or 1)

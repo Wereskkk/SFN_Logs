@@ -8,7 +8,7 @@ MoonLoader-скрипт для SA-MP (Evolve Role Play, Saint-Louis): ведёт
 **Evolve Logs API** (`api.evolvelogs.ru`), фракция 9 (SF News), сервер
 `saint-louis`.
 
-Текущая версия — **2.2.4**. История изменений вынесена в
+Текущая версия — **2.2.5**. История изменений вынесена в
 [`CHANGELOG.md`](../../CHANGELOG.md) в корне репозитория: там же версии
 SFN_Helper и теги релизов.
 
@@ -160,15 +160,15 @@ every   = 21600    ; как часто спрашивать, секунд (ми�
 `pip install lupa`, затем из `delivery/proekt`:
 
 ```bash
-python tests/run_logic.py                # 554 passed — правила, JSON,
+python tests/run_logic.py                # 556 passed — правила, JSON,
                                          # кодировки, /members, saveConfig
 python tests/run_ui.py                   # 272 passed — вёрстка окна
 python tests/run_ui_strict_colors.py     # DrawList жив, окно не «голое»
 python tests/run_api.py                  # 149 passed — сетевой слой,
                                          # автообновление, откат установки
-python tests/run_helper_logic.py         # 853 passed — ядро SFN_Helper
+python tests/run_helper_logic.py         # 861 passed — ядро SFN_Helper
                                          # и модули Фото/Эфир/Соцопрос
-python tests/run_helper_ui.py            # 192 passed — вёрстка вкладок
+python tests/run_helper_ui.py            # 222 passed — вёрстка вкладок
 python tests/render_svg.py               # preview/*.svg (10 сцен)
 python tests/render_helper_svg.py        # preview/helper-*.svg (9 сцен)
 python tests/run_lua51_syntax.py         # игровой слой компилируется
@@ -200,7 +200,7 @@ push и pull request: автообновление подменяет файл �
 
 | вкладка | модуль | перенос | данные |
 |---|---|---|---|
-| Журнал, Поиск, Настройки, О скрипте | ядро | SFN Logs 2.2.4 | `moonloader\SFNHelper\` |
+| Журнал, Поиск, Настройки, О скрипте | ядро | SFN Logs 2.2.5 | `moonloader\SFNHelper\` |
 | Фото | `photo` | `sfn_photo_helper.lua` v13.4.1 | `sfn_photo_data\photos.json` |
 | Эфир | `efir` | `sfn_efir_helper.lua` v7.0.1 | `sfn_data\*.json` |
 | Соцопрос | `social` | `sfn_social.lua` v4.0 | `sfn_photo_data\social.json` |

@@ -1,5 +1,5 @@
 script_name('SFN Logs')
-script_version('2.2.4')
+script_version('2.2.5')
 script_author('San Fierro News')
 
 -- Версия одна на весь файл и объявлена в самом верху.
@@ -10,7 +10,7 @@ script_author('San Fierro News')
 -- поэтому SFN_VERSION_STR читался там как глобальный nil, и любая проверка
 -- обновления отвечала «версия не новее текущей nil». Теперь литерал ровно
 -- один, и он обязан совпадать со script_version() (проверяется тестом).
-SFN_VERSION_STR = '2.2.4'
+SFN_VERSION_STR = '2.2.5'
 
 --[[
     Журнал состава San Fierro News.
@@ -4676,10 +4676,23 @@ imgui.OnFrame(function() return win[0] end, function(self)
     else
         local ok, err = pcall(drawFrame, os.time())
         if not ok then
-            dl_ok = false
-            SFNLogs.lastUiError = tostring(err)
-            logEvent('интерфейс переключён в упрощённый режим: ' .. tostring(err))
+            -- v2.2.5: ошибка кадра НЕ запирает окно в аварийном режиме.
+            -- dl_ok означает только «в этой сборке mimgui нет DrawList-примитивов»
+            -- и ставится исключительно зондом pdraw; падение кадра (например,
+            -- из-за одной вкладки) показывает упрощённый вид СЕЙЧАС, а следующий
+            -- кадр снова пробует обычный интерфейс: причина ушла - окно ожило.
+            -- Раньше здесь было «dl_ok = false», и после первой же ошибки окно
+            -- навсегда оставалось текстовым списком без вкладок и сайдбара -
+            -- из него нельзя было выйти (баг-репорт 01.10.2026: «открылись
+            -- логи, из них обратно выйти нельзя»).
+            local msg = tostring(err)
+            if SFNLogs.lastUiError ~= msg then
+                logEvent('кадр интерфейса не отрисовался, показан упрощённый: ' .. msg)
+            end
+            SFNLogs.lastUiError = msg
             pcall(drawFallback, os.time())
+        else
+            SFNLogs.lastUiError = nil    -- кадр ожил: ошибка больше не активна
         end
     end
     popTheme()
