@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1110" height="1830" viewBox="-28 -28 1110 1830" font-family="Trebuchet MS, Verdana, sans-serif">
+<rect x="-28" y="-28" width="1109.7599999999995" height="1830.0" fill="#08090c"/>
+<rect x="7" y="11" width="1053.7599999999995" height="1774.0" rx="10" fill="#000" opacity="0.5"/>
+<rect x="52.0" y="70.0" width="176.0" height="1732.0" rx="0.0" fill="#17171a" opacity="1.000"/>
+<circle cx="84.5" cy="97.6" r="18.4" fill="#cc314e" opacity="1.000"/>
+<circle cx="81.3" cy="79.5" r="3.2" fill="#cc314e" opacity="1.000"/>
+<circle cx="67.5" cy="99.0" r="2.6" fill="#cc314e" opacity="1.000"/>
+<circle cx="72.7" cy="87.9" r="2.7" fill="#cc314e" opacity="1.000"/>
+<circle cx="75.0" cy="82.1" r="2.4" fill="#cc314e" opacity="1.000"/>
+<circle cx="68.9" cy="93.2" r="2.2" fill="#cc314e" opacity="1.000"/>
+<circle cx="78.3" cy="73.8" r="1.6" fill="#cc314e" opacity="1.000"/>
+<circle cx="67.5" cy="84.7" r="1.2" fill="#cc314e" opacity="1.000"/>
+<circle cx="72.1" cy="71.1" r="1.1" fill="#cc314e" opacity="1.000"/>
+<circle cx="71.4" cy="74.1" r="1.0" fill="#cc314e" opacity="1.000"/>
+<circle cx="64.2" cy="92.9" r="0.9" fill="#cc314e" opacity="1.000"/>
+<circle cx="67.3" cy="80.5" r="0.9" fill="#cc314e" opacity="1.000"/>
+<circle cx="64.2" cy="85.1" r="0.9" fill="#cc314e" opacity="1.000"/>
+<rect x="78.4" y="91.2" width="5.2" height="15.4" rx="2.6" fill="#ffffff" opacity="1.000"/>
+<rect x="78.4" y="91.2" width="12.7" height="3.6" rx="1.8" fill="#ffffff" opacity="1.000"/>
+<rect x="78.4" y="97.1" width="10.3" height="3.2" rx="1.6" fill="#ffffff" opacity="1.000"/>
+<rect x="78.4" y="102.9" width="12.9" height="3.7" rx="1.8" fill="#ffffff" opacity="1.000"/>
+<defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e5334c" stop-opacity="0.498"/><stop offset="0.5" stop-color="#ff7f99" stop-opacity="0.000"/><stop offset="1" stop-color="#e5334c" stop-opacity="0.498"/></linearGradient></defs>
+<rect x="52.0" y="384.0" width="156.0" height="30.0" rx="0.0" fill="url(#g1)"/>
+<rect x="202.0" y="391.5" width="3.0" height="15.0" rx="0.0" fill="#b82d43" opacity="1.000"/>
+<defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e54c4c" stop-opacity="0.098"/><stop offset="0.5" stop-color="#666666" stop-opacity="0.000"/><stop offset="1" stop-color="#e54c4c" stop-opacity="0.098"/></linearGradient></defs>
+<rect x="228.0" y="70.0" width="838.8" height="20.0" rx="0.0" fill="url(#g2)"/>
+<defs><linearGradient id="g3" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e54c4c" stop-opacity="0.098"/><stop offset="0.5" stop-color="#666666" stop-opacity="0.000"/><stop offset="1" stop-color="#e54c4c" stop-opacity="0.098"/></linearGradient></defs>
+<rect x="228.0" y="104.0" width="838.8" height="20.0" rx="0.0" fill="url(#g3)"/>
+<defs><linearGradient id="g4" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e54c4c" stop-opacity="0.098"/><stop offset="0.5" stop-color="#666666" stop-opacity="0.000"/><stop offset="1" stop-color="#e54c4c" stop-opacity="0.098"/></linearGradient></defs>
+<rect x="228.0" y="192.0" width="838.8" height="20.0" rx="0.0" fill="url(#g4)"/>
+<line x1="234.0" y1="326.0" x2="1060.8" y2="326.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<rect x="228.5" y="332.5" width="295.8" height="25.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<defs><linearGradient id="g5" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e54c4c" stop-opacity="0.098"/><stop offset="0.5" stop-color="#666666" stop-opacity="0.000"/><stop offset="1" stop-color="#e54c4c" stop-opacity="0.098"/></linearGradient></defs>
+<rect x="228.0" y="378.0" width="838.8" height="20.0" rx="0.0" fill="url(#g5)"/>
+<line x1="234.0" y1="436.0" x2="1060.8" y2="436.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="234.0" y1="518.0" x2="1060.8" y2="518.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<rect x="228.5" y="524.5" width="272.8" height="25.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<rect x="228.5" y="570.5" width="209.4" height="25.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<rect x="228.5" y="616.5" width="207.5" height="25.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<defs><linearGradient id="g6" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e54c4c" stop-opacity="0.098"/><stop offset="0.5" stop-color="#666666" stop-opacity="0.000"/><stop offset="1" stop-color="#e54c4c" stop-opacity="0.098"/></linearGradient></defs>
+<rect x="228.0" y="662.0" width="838.8" height="20.0" rx="0.0" fill="url(#g6)"/>
+<line x1="234.0" y1="822.0" x2="1060.8" y2="822.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="234.0" y1="854.0" x2="1060.8" y2="854.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<rect x="228.5" y="860.5" width="274.7" height="25.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<defs><linearGradient id="g7" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e54c4c" stop-opacity="0.098"/><stop offset="0.5" stop-color="#666666" stop-opacity="0.000"/><stop offset="1" stop-color="#e54c4c" stop-opacity="0.098"/></linearGradient></defs>
+<rect x="228.0" y="906.0" width="838.8" height="20.0" rx="0.0" fill="url(#g7)"/>
+<line x1="234.0" y1="964.0" x2="1060.8" y2="964.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="234.0" y1="996.0" x2="1060.8" y2="996.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="234.0" y1="1028.0" x2="1060.8" y2="1028.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<defs><linearGradient id="g8" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e54c4c" stop-opacity="0.098"/><stop offset="0.5" stop-color="#666666" stop-opacity="0.000"/><stop offset="1" stop-color="#e54c4c" stop-opacity="0.098"/></linearGradient></defs>
+<rect x="228.0" y="1084.0" width="838.8" height="20.0" rx="0.0" fill="url(#g8)"/>
+<line x1="234.0" y1="1142.0" x2="1060.8" y2="1142.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="234.0" y1="1174.0" x2="1060.8" y2="1174.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="234.0" y1="1206.0" x2="1060.8" y2="1206.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="234.0" y1="1238.0" x2="1060.8" y2="1238.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="234.0" y1="1270.0" x2="1060.8" y2="1270.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<defs><linearGradient id="g9" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e54c4c" stop-opacity="0.098"/><stop offset="0.5" stop-color="#666666" stop-opacity="0.000"/><stop offset="1" stop-color="#e54c4c" stop-opacity="0.098"/></linearGradient></defs>
+<rect x="228.0" y="1301.0" width="838.8" height="20.0" rx="0.0" fill="url(#g9)"/>
+<line x1="234.0" y1="1359.0" x2="1060.8" y2="1359.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="234.0" y1="1391.0" x2="1060.8" y2="1391.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="234.0" y1="1423.0" x2="1060.8" y2="1423.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="234.0" y1="1455.0" x2="1060.8" y2="1455.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="234.0" y1="1487.0" x2="1060.8" y2="1487.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<line x1="234.0" y1="1519.0" x2="1060.8" y2="1519.0" stroke="#28282b" stroke-opacity="1.000" stroke-width="1.0"/>
+<rect x="228.5" y="1600.5" width="288.1" height="25.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<defs><linearGradient id="g10" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e54c4c" stop-opacity="0.098"/><stop offset="0.5" stop-color="#666666" stop-opacity="0.000"/><stop offset="1" stop-color="#e54c4c" stop-opacity="0.098"/></linearGradient></defs>
+<rect x="228.0" y="1646.0" width="838.8" height="20.0" rx="0.0" fill="url(#g10)"/>
+<rect x="228.5" y="1703.5" width="229.9" height="25.0" rx="3.0" fill="none" stroke="#3f3f42" stroke-opacity="0.537" stroke-width="1.0"/>
+<line x1="1057.3" y1="45.5" x2="1066.3" y2="52.5" stroke="#5b6b77" stroke-opacity="1.000" stroke-width="1.6"/>
+<line x1="1066.3" y1="45.5" x2="1057.3" y2="52.5" stroke="#5b6b77" stroke-opacity="1.000" stroke-width="1.6"/>
+<text x="114.0" y="95.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">SFN Helper</text>
+<text x="95.4" y="164.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Журнал</text>
+<text x="101.2" y="212.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Поиск</text>
+<text x="107.0" y="260.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Фото</text>
+<text x="107.0" y="308.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Эфир</text>
+<text x="83.9" y="356.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Соцопрос</text>
+<text x="78.2" y="404.8" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">Настройки</text>
+<text x="79.1" y="452.8" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">О скрипте</text>
+<text x="60.0" y="1775.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">v0.2.0</text>
+<text x="60.0" y="1793.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">Данные: ок</text>
+<text x="236.0" y="85.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Настройки</text>
+<text x="236.0" y="119.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Окно</text>
+<text x="230.0" y="154.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Горячая клавиша:</text>
+<text x="416.0" y="154.5" fill="#b82d43" opacity="1.000" font-size="13.5" xml:space="preserve">F9</text>
+<text x="254.0" y="183.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Показывать уволенных в журнале</text>
+<text x="236.0" y="207.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Состав из игры</text>
+<text x="254.0" y="241.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Забирать состав из ответа /members</text>
+<text x="236.0" y="263.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">   кнопка ниже отправляет /members, а скрипт разбирает ответ сервера:</text>
+<text x="236.0" y="288.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">   сотрудники попадают в журнал, ранги и даты добираются из Evolve Logs</text>
+<text x="234.0" y="318.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">последний состав</text>
+<text x="857.2" y="318.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">ещё не запрашивали</text>
+<text x="242.0" y="350.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve"> ОБНОВИТЬ СОСТАВ ИЗ ИГРЫ</text>
+<text x="236.0" y="393.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Данные из Evolve Logs</text>
+<text x="234.0" y="428.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">данные запрашиваются от имени</text>
+<text x="749.7" y="428.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">ваш ник (подставится в игре)</text>
+<text x="236.0" y="455.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">   журнал Evolve RP отдаёт данные только по нику игрока; если состав</text>
+<text x="236.0" y="480.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">   не обновляется - зайдите в игру и нажмите «Обновить данные всех»</text>
+<text x="234.0" y="510.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">соединение</text>
+<text x="1014.7" y="510.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">есть</text>
+<text x="242.0" y="542.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">R ОБНОВИТЬ ДАННЫЕ ВСЕХ</text>
+<text x="242.0" y="588.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">СОХРАНИТЬ ЖУРНАЛ</text>
+<text x="242.0" y="634.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">ВЫГРУЗИТЬ В ФАЙЛ</text>
+<text x="236.0" y="677.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Обновления</text>
+<text x="254.0" y="711.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Проверять обновления автоматически</text>
+<text x="254.0" y="737.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">Ставить новую версию сразу</text>
+<text x="236.0" y="759.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">   скрипт сам берёт свежую версию из репозитория и подменяет свой файл;</text>
+<text x="236.0" y="784.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">   старая версия сохраняется рядом как SFNLogs.lua.bak</text>
+<text x="234.0" y="814.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">обновлений</text>
+<text x="1026.2" y="814.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">нет</text>
+<text x="234.0" y="846.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">последняя проверка</text>
+<text x="880.3" y="846.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">ещё не проверяли</text>
+<text x="242.0" y="878.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">R ПРОВЕРИТЬ ОБНОВЛЕНИЯ</text>
+<text x="236.0" y="921.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Фото</text>
+<text x="234.0" y="956.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">лимит игроков в неделю</text>
+<text x="1041.6" y="956.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">25</text>
+<text x="234.0" y="988.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">лимит мест в неделю</text>
+<text x="1041.6" y="988.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">15</text>
+<text x="234.0" y="1020.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">снято на этой неделе</text>
+<text x="1012.8" y="1020.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">3 + 2</text>
+<text x="236.0" y="1047.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">   база: /tmp/sfntest_ui\sfn_photo_data\photos.json</text>
+<text x="236.0" y="1072.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">   окно открывается само, когда сервер показывает заказ-диалог папарацци</text>
+<text x="236.0" y="1099.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Эфир</text>
+<text x="234.0" y="1134.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">доступ</text>
+<text x="968.6" y="1134.5" fill="#33d872" opacity="1.000" font-size="13.5" xml:space="preserve">разрешён</text>
+<text x="234.0" y="1166.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">хоткей вкладки</text>
+<text x="1032.0" y="1166.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">F11</text>
+<text x="234.0" y="1198.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">максимум баллов</text>
+<text x="1041.6" y="1198.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">20</text>
+<text x="234.0" y="1230.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">призовой фонд</text>
+<text x="993.6" y="1230.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">500000$</text>
+<text x="234.0" y="1262.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">ставка за минуту</text>
+<text x="1012.8" y="1262.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">6000$</text>
+<text x="236.0" y="1289.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">   база баллов и тексты речей: /tmp/sfntest_ui\sfn_data</text>
+<text x="236.0" y="1316.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Соцопрос</text>
+<text x="234.0" y="1351.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">цикл</text>
+<text x="982.0" y="1351.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">не идёт</text>
+<text x="234.0" y="1383.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">хоткей вкладки</text>
+<text x="1032.0" y="1383.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">F10</text>
+<text x="234.0" y="1415.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">опрошено</text>
+<text x="993.6" y="1415.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">3 / 100</text>
+<text x="234.0" y="1447.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">выдано листовок</text>
+<text x="993.6" y="1447.5" fill="#ffffff" opacity="1.000" font-size="13.5" xml:space="preserve">2 / 100</text>
+<text x="234.0" y="1479.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">полов в общей базе</text>
+<text x="1051.2" y="1479.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">2</text>
+<text x="234.0" y="1511.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">радиус поиска цели</text>
+<text x="1015.3" y="1511.5" fill="#999999" opacity="1.000" font-size="13.5" xml:space="preserve">3.0 м</text>
+<text x="236.0" y="1538.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">   вопрос недели и текст /me листовки редактируются на вкладке «Соцопрос»</text>
+<text x="236.0" y="1563.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">   база: /tmp/sfntest_ui\sfn_photo_data\social.json</text>
+<text x="236.0" y="1588.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">   общая база полов: /tmp/sfntest_ui\SFNHelper\genders.json</text>
+<text x="242.0" y="1618.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">ОЧИСТИТЬ БАЗЫ СОЦОПРОСА</text>
+<text x="236.0" y="1661.5" fill="#e54c4c" opacity="1.000" font-size="13.5" xml:space="preserve">Служебное</text>
+<text x="236.0" y="1691.5" fill="#5b6b77" opacity="1.000" font-size="13.5" xml:space="preserve">   файл настроек: /tmp/sfntest_ui\SFNHelper\config.ini</text>
+<text x="242.0" y="1721.5" fill="#888888" opacity="1.000" font-size="13.5" xml:space="preserve">ПЕРЕЧИТАТЬ config.ini</text>
+</svg>

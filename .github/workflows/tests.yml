@@ -7,15 +7,16 @@ name: tests
 # у всех пользователей сразу. Прогон обязателен до вливания.
 #
 # Наборы (счётчики сверяются с README.md, раздел «Проверка»):
-#   logic  544 — бизнес-логика: правила повышений, JSON, кодировки, разбор
+#   logic  554 — бизнес-логика: правила повышений, JSON, кодировки, разбор
 #                /members, версии обновления, saveConfig;
-#   ui     247 — вёрстка на headless-моке mimgui: наложения текста, выход за
+#   ui     272 — вёрстка на headless-моке mimgui: наложения текста, выход за
 #                границы окна, баланс Begin/End и Push/Pop, DPI, fallback;
-#   api    145 — сетевой слой: статусы 6/58, гонка «статус раньше тела»,
+#   api    149 — сетевой слой: статусы 6/58, гонка «статус раньше тела»,
 #                тишина, 404 NOT_FOUND, повторы и откат, автообновление;
 #   strict     — отдельная проверка, что DrawList жив и окно не деградировало
 #                в текстовый режим (цвета и примитивы реально вызываются);
-#   helper     — логика модулей SFN_Helper (51) и вёрстка его вкладок (59).
+#   helper 843 — логика ядра и модулей SFN_Helper (Фото, Эфир, Соцопрос,
+#                общая база полов) и 192 проверки вёрстки его вкладок.
 
 on:
   push:
@@ -44,7 +45,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install lupa
 
-      - name: Синтаксис всех четырёх копий SFNLogs.lua
+      - name: Синтаксис всех копий SFNLogs.lua и SFN_Helper.lua
         run: |
           python - <<'PY'
           import io, sys
@@ -53,7 +54,8 @@ jobs:
           paths = ["SFNLogs.lua",
                    "delivery/SFNLogs.lua",
                    "delivery/proekt/SFNLogs.lua",
-                   "delivery/moonloader_pack/SFNLogs.lua"]
+                   "delivery/moonloader_pack/SFNLogs.lua",
+                   "SFN_Helper.lua"]
           bad = 0
           for p in paths:
               src = io.open(p, encoding="utf-8").read()
@@ -81,7 +83,7 @@ jobs:
       - name: Сетевой слой и автообновление (tests/test_api.lua)
         run: python tests/run_api.py
 
-      - name: "Helper: логика модулей (Фото)"
+      - name: "Helper: логика ядра и модулей (Фото, Эфир, Соцопрос)"
         run: python tests/run_helper_logic.py
 
       - name: "Helper: вёрстка вкладок"
@@ -89,3 +91,6 @@ jobs:
 
       - name: Превью разделов собираются без ошибок раскладки
         run: python tests/render_svg.py
+
+      - name: "Превью вкладок SFN_Helper (все модули)"
+        run: python tests/render_helper_svg.py
